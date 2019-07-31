@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0">
+    <channel>
+        <title>Ground Level Magic</title>
+        <link>https://groundlevelmagic.tk/posts</link>
+        <description>doing magic while keeping it simple</description>
+        <lastBuildDate>Wed, 31 Jul 2019 20:59:08 GMT</lastBuildDate>
+        <docs>http://blogs.law.harvard.edu/tech/rss</docs>
+        <generator>Elmstatic</generator>
+        <language>en</language>
+        <image>
+            <title>Ground Level Magic</title>
+            <url>https://groundlevelmagic.tk/img/logo.png</url>
+            <link>https://groundlevelmagic.tk/posts</link>
+        </image>
+        <copyright>Copyright: Leonardo Taglialegne</copyright>
+        <item>
+            <title><![CDATA[HaskElm #1: getting the (ca)ball rolling]]></title>
+            <link>https://groundlevelmagic.tk/posts/2019-07-31-haskelm-1-getting-the-caball-rolling</link>
+            <guid>https://groundlevelmagic.tk/posts/2019-07-31-haskelm-1-getting-the-caball-rolling</guid>
+            <pubDate>Wed, 31 Jul 2019 00:00:00 GMT</pubDate>
+            <description><![CDATA[
+Introduction
+HaskElm is a project in which I try and rewrite a Prelude for Haskell that feels like Elm's Prelude.
+
+This set of posts is structured as a log of my explorations, rather than a tutorial or an howto, so it will have warts, false ends and errors (although I'll cut some of the uninteresting ones).
+
+Let's start with a minimal viable example: the target will be to compile the following program:
+
+module Main
+  ( main
+  ) where
+
+import           CLI
+
+type Flags = ()
+
+type Model = ()
+
+type...]]></description>
+        </item>
+        <item>
+            <title><![CDATA[All posts]]></title>
+            <link>https://groundlevelmagic.tk/posts/undefined-undefined</link>
+            <guid>https://groundlevelmagic.tk/posts/undefined-undefined</guid>
+            <pubDate>Invalid Date</pubDate>
+            <description><![CDATA[
+...]]></description>
+        </item>
+    </channel>
+</rss>
