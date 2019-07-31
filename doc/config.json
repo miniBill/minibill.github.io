@@ -1,0 +1,25 @@
+{
+    "siteTitle": "Ground Level Magic",
+    "outputDir": "_site",
+    "copy": {
+        "/posts": "/"
+    },
+    "feed": {
+        "title": "Ground Level Magic",
+        "description": "doing magic while keeping it simple",
+        "id": "https://groundlevelmagic.tk",
+        "link": "https://groundlevelmagic.tk/posts",
+        "image": "https://groundlevelmagic.tk/img/logo.png",
+        "copyright": "Copyright: Leonardo Taglialegne",
+        "language": "en",
+        "generator": "Elmstatic",
+        "author": {
+            "name": "Leonardo Taglialegne",
+            "link": "https://groundlevelmagic.tk/about"
+        }
+    },
+    "tags": [
+        "elm",
+        "haskell"
+    ]
+}
