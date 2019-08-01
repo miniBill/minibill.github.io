@@ -327,3 +327,22 @@ src/CLI.hs:10:101: error:
    |                                                                                                     ^^^^^^
 ```
 ARGH.
+
+A Google search later, we add `PolyKinds` to `default-extensions` in the library section in `haskelm.cabal`.
+
+Aaaaand:
+
+```bash
+$ cabal build
+Resolving dependencies...
+Configuring haskelm-0.1.0.0...
+Preprocessing library for haskelm-0.1.0.0..
+Building library for haskelm-0.1.0.0..
+[1 of 2] Compiling Prelude          ( src/Prelude.hs, dist/build/Prelude.o ) [flags changed]
+[2 of 2] Compiling CLI              ( src/CLI.hs, dist/build/CLI.o ) [flags changed]
+Preprocessing executable 'haskelm' for haskelm-0.1.0.0..
+Building executable 'haskelm' for haskelm-0.1.0.0..
+Linking dist/build/haskelm/haskelm ...
+```
+
+![IT'S ALIVE](https://i.imgur.com/B2h7KK9.gif)

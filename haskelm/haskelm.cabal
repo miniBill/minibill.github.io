@@ -21,10 +21,11 @@ library
     base >=4.11 && <4.12, HList >= 0.5 && <0.6
   hs-source-dirs:      src
   default-language:    Haskell2010
-  default-extensions:  PackageImports, DataKinds
+  default-extensions:  PackageImports, DataKinds, PolyKinds
 
 executable haskelm
   main-is:             Main.hs
   build-depends:       haskelm
   hs-source-dirs:      app
   default-language:    Haskell2010
+  default-extensions:  DataKinds, PolyKinds

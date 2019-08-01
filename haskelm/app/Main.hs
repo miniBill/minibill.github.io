@@ -1,3 +1,5 @@
+{-# LANGUAGE DataKinds #-}
+
 module Main
   ( main
   ) where
@@ -11,9 +13,11 @@ type Model = ()
 type Msg = ()
 
 main :: IO ()
-main = error "tmp" {-
-  CLI.sandbox
-    { init = \flags -> ()
-    , view = \model -> CLI.text "Hello world!"
-    , update = \msg model -> model
-    } -}
+main =
+  let init = Label :: Label "init"
+      view = Label :: Label "view"
+      update = Label :: Label "update"
+   in CLI.sandbox <|
+      init .=. () .*. view .=. \model ->
+        CLI.text "Hello world!" .*. update .=. \msg model ->
+          model .*. emptyRecord
