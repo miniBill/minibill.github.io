@@ -1,27 +1,18 @@
 {-# LANGUAGE PackageImports #-}
 
 module Prelude
-  ( Label
-  , IO
-  , Record
+  ( IO
   , String
-  , Tagged
-  , error
+  , (<|)
   ) where
 
-import qualified Data.HList.Record as DHR
-import           GHC.DataLabels
-import qualified "base" Prelude    as P
+import qualified "base" Prelude as P
 
 type IO a = P.IO a
 
 type String = P.String
 
-type Record = DHR.Record
+infixr 0 <|
 
-type Label = DHR.Label
-
-type Tagged = DHR.Tagged
-
-error :: String -> a
-error = P.error
+(<|) :: (a -> b) -> a -> b
+f <| x = f x

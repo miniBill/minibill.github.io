@@ -1,5 +1,3 @@
-{-# LANGUAGE DataKinds #-}
-
 module Main
   ( main
   ) where
@@ -14,10 +12,7 @@ type Msg = ()
 
 main :: IO ()
 main =
-  let init = Label :: Label "init"
-      view = Label :: Label "view"
-      update = Label :: Label "update"
-   in CLI.sandbox <|
-      init .=. () .*. view .=. \model ->
-        CLI.text "Hello world!" .*. update .=. \msg model ->
-          model .*. emptyRecord
+  let init = ()
+      view _ = CLI.text "Hello world!"
+      update _ model = model
+   in CLI.run_ <| CLI.sandbox init view update

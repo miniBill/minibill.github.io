@@ -346,3 +346,8 @@ Linking dist/build/haskelm/haskelm ...
 ```
 
 ![IT'S ALIVE](https://i.imgur.com/B2h7KK9.gif)
+
+## In the next episode ##
+We'll ditch records and just try to build what we wanted to build in the first place!
+
+[Part 2](/2019-08-01-haskelm-2-don-t-put-that-on-record)
