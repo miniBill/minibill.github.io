@@ -13,10 +13,12 @@ extra-source-files:  ChangeLog.md
 cabal-version:       >=1.10
 
 library
-  exposed-modules:   Prelude, CLI
-  build-depends:     base >=4.11 && <4.12
+  exposed-modules:   Prelude, CLI, CLI.Attributes, List, String
+  other-modules:     Protolude
+  build-depends:     base >=4.11 && <4.12, ncurses >=0.2 && <0.3
   hs-source-dirs:    src
   default-language:  Haskell2010
+  ghc-options:       -Wall -Werror
 
 executable haskelm
   main-is:           Main.hs

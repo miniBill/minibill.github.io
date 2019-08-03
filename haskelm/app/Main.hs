@@ -2,17 +2,28 @@ module Main
   ( main
   ) where
 
-import           CLI
+import           CLI            (button, row, text)
+import qualified CLI
+import           CLI.Attributes (onClick)
 
-type Flags = ()
-
-type Model = ()
-
-type Msg = ()
+-- unfortunately Haskell does not support qualified module exports
+import qualified String
 
 main :: IO ()
-main =
-  let init = ()
-      view _ = CLI.text "Hello world!"
-      update _ model = model
-   in CLI.run_ <| CLI.sandbox init view update
+main = CLI.run_ <| CLI.sandbox 0 view update
+
+data Msg
+  = Increment
+  | Decrement
+
+update msg model =
+  case msg of
+    Increment -> model + 1
+    Decrement -> model - 1
+
+view model =
+  row
+    [ button [onClick Decrement] [text "-"]
+    , text <| String.fromInt model
+    , button [onClick Increment] [text "+"]
+    ]

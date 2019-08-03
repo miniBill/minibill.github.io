@@ -6,7 +6,8 @@ tags: elm haskell
 ## Introduction ##
 HaskElm is a project in which I try and rewrite a Prelude for Haskell that feels like Elm's Prelude.
 
-This set of posts is structured as a log of my explorations, rather than a tutorial or an howto, so it will have warts, false ends and errors (although I'll cut some of the uninteresting ones).
+This set of posts is aimed at people with some experience in Elm (having read the guide should be enough) and no experience in Haskell.
+It is structured as a log of my explorations, rather than a tutorial or an howto, so it will have warts, false ends and errors (although I'll cut some of the uninteresting ones).
 
 Let's start with a minimal viable example: the target will be to compile the following program:
 
@@ -15,7 +16,7 @@ module Main
   ( main
   ) where
 
-import           CLI
+import qualified CLI
 
 type Flags = ()
 
@@ -32,7 +33,16 @@ main =
     }
 ```
 
+Some observations for people unfamiliar with Haskell:
+* `type` in Haskell has the same meaning as `type alias` in Elm, Haskell uses `data` for what Elm simply calls `type`;
+* `import qualified` is similar to the behaviour you have in Elm: the default in Haskell (without `qualified`) is exposing everything (`expose (..)` in Elm);
+* `module X (ys) where` is Elm's `module X exposing (ys)`;
+* `main` in Haskell must have the type `IO ()`, which is the type of impure computations, as a first approximation you can think of `IO` as `Task`;
+* the meaning of `::` and `:` is swapped in Elm and Haskell.
+
 Seems simple, right? We'll see...
+
+Warning: in the end I chose a slightly different approach so, unless you want to read a rambling on trying to use records in Haskell in a way that is similar to Elm, just skip to [Part II](/2019-08-01-haskelm-2-don-t-put-that-on-record).
 
 ## Cabal init ##
 Let's keep it simple: we'll start with `cabal`, then switch to `stack` later.
@@ -350,4 +360,4 @@ Linking dist/build/haskelm/haskelm ...
 ## In the next episode ##
 We'll ditch records and just try to build what we wanted to build in the first place!
 
-[Part 2](/2019-08-01-haskelm-2-don-t-put-that-on-record)
+[Part II](/2019-08-01-haskelm-2-don-t-put-that-on-record)
