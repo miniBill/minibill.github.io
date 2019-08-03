@@ -9,7 +9,7 @@ HaskElm is a project in which I try and rewrite a Prelude for Haskell that feels
 This set of posts is aimed at people with some experience in Elm (having read the guide should be enough) and no experience in Haskell.
 It is structured as a log of my explorations, rather than a tutorial or an howto, so it will have warts, false ends and errors (although I'll cut some of the uninteresting ones).
 
-In [part II](/2019-07-31-haskelm-1-getting-the-caball-rolling) we actually managed to put something on the screen!
+In [part II](/2019-08-01-haskelm-2-don-t-put-that-on-record) we actually managed to put something on the screen!
 
 In this episode we'll start handling events.
 
@@ -453,4 +453,16 @@ row = Row
 
 text :: String -> CLI msg
 text = Text
+```
+
+So, we've got `displayAndWait` that returns a `Maybe Curses.Event` (wrapped in a monad, but we'll use `andThen`/`do`-notation for that), and we want to implement the main loop.
+
+We will implement a `eventToMsgs :: Curses.Event -> CLI msg -> List msg` (the `List` makes code simpler), we already have a `displayAndWait :: CLI msg -> Curses (Maybe Curses.Event)` and we want to create a loop that will have type `Curses ()`.
+
+The function will take the initial model:
+
+```haskell
+mainLoop model view update = do
+  let root = view model
+  event <- displayAndWait 
 ```
