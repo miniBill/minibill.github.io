@@ -169,7 +169,7 @@ Yay! Simple wins again!
 Let's swap the implementation of `run` in `CLI.hs` with:
 
 ```haskell
-import qualified "base" Control.Monad      as Monad -- The M word!!!
+import qualified "base" Control.Monad      as Monad -- Monads!!!
 
 run :: flags -> Program flags model msg -> IO ()
 run flags (Program init view _) =
@@ -183,9 +183,9 @@ run flags (Program init view _) =
 
 Ok, let's talk about the M word. I *will* be using monads but I'll try to keep it simple, and use them only in the implementation, what in Elm would be kernel code.
 
-Monads are simply datatypes `m x` with two functions:
-* `return :: x -> m x`, this is usually trivial, `\x -> [x]` for `List`, `\x -> Just x` for `Maybe`, `\x -> Ok x` for `Result`,... It takes a value and puts it inside the datatype;
-* `(>>=) :: m x -> (x -> m y) -> m y` this is `andThen` (`List.andThen`, `Maybe.andThen`, `Result.andThen`, `Decoder.andThen`, ...).
+Monads are simply types `M x` with two functions:
+* `return :: x -> M x`, this is usually trivial, `\x -> [x]` for `List`, `\x -> Just x` for `Maybe`, `\x -> Ok x` for `Result`,... It takes a value and puts it inside the type;
+* `(>>=) :: M x -> (x -> M y) -> M y` this is Elm's `andThen` with arguments flipped (`List.andThen`, `Maybe.andThen`, `Result.andThen`, `Decoder.andThen`, ...).
 
 `do` is just a compact notation, without it we would have to write:
 
@@ -196,7 +196,7 @@ Monads are simply datatypes `m x` with two functions:
 
 `Monad.forever` just does what it says on the tin: it executes something forever.
 
-This works but consumes a lot of CPU while idling. One thing I remember is that the simplest way to not do that is to suspend the thread a bit:
+This works but consumes a lot of CPU while idling. The simplest way to not do that is to suspend the thread a bit:
 
 ```haskell
 import qualified "base" Control.Concurrent as Concurrent
@@ -252,7 +252,7 @@ import           CLI            (button, row, text)
 import qualified CLI
 import           CLI.Attributes (onClick)
 
--- unfortunately Haskell does not support qualified module exports
+-- unfortunately Haskell does not support qualified module exports, so we have to explicitly import modules instead of just exposing them from Prelude
 import qualified String
 
 main :: IO ()
@@ -381,7 +381,7 @@ instance Number P.Integer where
   (-) = (P.-)
 ```
 
-We need to defined the equivalend of Elm's "magic" `number` and `appendable`. In Haskell we use typeclasses.
+We need `class` and `instance` to define the equivalent of Elm's "magic" `number` and `appendable`. In Haskell we use typeclasses.
 Typeclasses are sets of generic functions, and instances are how those functions are defined for types. Again, we'll use this in "kernel" code, but clients need not worry.
 
 Add `Protolude` to the `other-modules` in the cabal file.

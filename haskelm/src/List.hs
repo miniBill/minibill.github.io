@@ -39,6 +39,4 @@ intersperse _ [x]    = [x]
 intersperse i (x:xs) = x : i : intersperse i xs
 
 zip :: List a -> List b -> List (a, b)
-zip [] _          = []
-zip _ []          = []
-zip (x:xs) (y:ys) = (x, y) : zip xs ys
+zip = P.zip
