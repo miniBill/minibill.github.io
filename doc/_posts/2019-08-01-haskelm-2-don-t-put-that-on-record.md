@@ -4,7 +4,12 @@ tags: elm haskell
 ---
 
 ## Introduction ##
-In [part 1](/2019-07-31-haskelm-1-getting-the-caball-rolling) we tried to work with records in Haskell.
+HaskElm is a project in which I try and rewrite a Prelude for Haskell that feels like Elm's Prelude.
+
+This set of posts is aimed at people with some experience in Elm (having read the guide should be enough) and no experience in Haskell.
+It is structured as a log of my explorations, rather than a tutorial or an howto, so it will have warts, false ends and errors (although I'll cut some of the uninteresting ones).
+
+In [part I](/2019-07-31-haskelm-1-getting-the-caball-rolling) we tried to work with records in Haskell.
 
 It was painful but we were finally able to compile something using `HList` and some fairly recent GHC extensions.
 
@@ -446,19 +451,7 @@ Running haskelm...
 
 It works!
 
-## Messages ##
-To handle messages we need two things:
-1. detecting mouse clicks,
-2. transforming clicks into `msg`s and feeding them to `update`.
+## In the next episode ##
+We'll start implementing user interactions!
 
-For working with the screen and mouse we'll use the `ncurses` package.
-
-### ncurses ###
-```bash
-$ sudo apt install c2hs
-$ cabal install ncurses
-```
-
-Add `ncurses >=0.2 && <0.3` in `build-depends` for the library.
-
-
+Continue to [Part III](/2019-08-03-haskelm-3-egyptian-ncurses)!

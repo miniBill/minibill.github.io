@@ -1,15 +1,23 @@
 module Prelude
-  ( Appendable(..)
+  ( Bool(..)
   , Int
   , IO
   , List
   , Maybe(..)
-  , Number(..)
+  , Order(..)
   , String
   , (<|)
   , (|>)
   , (<<)
   , (>>)
+  , (==)
+  , (++)
+  , (+)
+  , (-)
+  , (//)
+  , compare
+  , max
+  , not
   ) where
 
 import           Protolude

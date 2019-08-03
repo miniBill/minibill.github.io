@@ -4,21 +4,25 @@
 module Protolude
   ( Appendable(..)
   , Bool(..)
-  , Comparable(..)
+  , Equatable(..)
   , Int
   , IO
   , List
   , Maybe(..)
   , Number(..)
+  , Comparable(..)
   , Order(..)
   , String
   , (<|)
   , (|>)
   , (<<)
   , (>>)
+  , (//)
+  , max
+  , not
   ) where
 
-import           "base" Prelude (Bool, IO, Maybe, String)
+import           "base" Prelude (Bool, IO, Maybe, String, not)
 import qualified "base" Prelude as P
 
 type Int = P.Integer
@@ -30,7 +34,7 @@ infixr 0 <|
 (<|) :: (a -> b) -> a -> b
 f <| x = f x
 
-infixr 0 |>
+infixl 0 |>
 
 (|>) :: a -> (a -> b) -> b
 x |> f = f x
@@ -40,10 +44,13 @@ infixr 0 <<
 (<<) :: (b -> c) -> (a -> b) -> a -> c
 (<<) f g x = f (g x)
 
-infixr 0 >>
+infixl 0 >>
 
 (>>) :: (a -> b) -> (b -> c) -> a -> c
 (>>) g f x = f (g x)
+
+identity :: a -> a
+identity x = x
 
 class Appendable a where
   (++) :: a -> a -> a
@@ -54,39 +61,42 @@ instance Appendable [a] where
 class Number a where
   (+) :: a -> a -> a
   (-) :: a -> a -> a
+  fromInteger :: P.Integer -> a
 
 instance Number P.Integer where
   (+) = (P.+)
   (-) = (P.-)
+  fromInteger = identity
+
+(//) :: Int -> Int -> Int
+(//) = (P.div)
 
 class Equatable a where
   (==) :: a -> a -> Bool
-  a == b = not (a /= b)
-  (/=) :: a -> a -> Bool
-  a /= b = not (a == b)
+
+class Equatable a =>
+      Comparable a
+  where
+  compare :: a -> a -> Order
+
+instance Equatable P.Integer where
+  (==) = (P.==)
+
+instance Comparable P.Integer where
+  compare l r =
+    if l == r
+      then EQ
+      else if (P.<) l r
+             then LT
+             else GT
+
+max :: Comparable a => a -> a -> a
+max l r =
+  case compare l r of
+    LT -> r
+    _  -> l
 
 data Order
   = LT
   | EQ
   | GT
-
-instance Equatable Order
-
-class P.Eq a =>
-      Comparable a
-  where
-  (<) :: a -> a -> Bool
-  a < b = compare a b == LT
-  (>) :: a -> a -> Bool
-  a > b = compare a b == GT
-  (<=) :: a -> a -> Bool
-  a <= b = compare a b /= GT
-  (>=) :: a -> a -> Bool
-  a >= b = compare a b /= LT
-  compare :: a -> a -> Order
-  compare a b =
-    if a == b
-      then EQ
-      else if a < b
-             then LT
-             else GT

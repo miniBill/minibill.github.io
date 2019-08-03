@@ -12,14 +12,11 @@ module CLI
   ) where
 
 import           CLI.Attributes (Attribute)
-
---import qualified "base" Control.Concurrent as Concurrent
---import qualified "base" Control.Monad      as Monad
 import qualified List
-import           "base" Prelude (return)
-
---import qualified "base" Prelude
+import qualified Maybe
+import           "base" Prelude (mapM_, return)
 import qualified String
+import qualified Tuple
 import           UI.NCurses     (Update)
 import qualified UI.NCurses     as Curses
 
@@ -53,24 +50,60 @@ run flags (Program init view _) =
 display :: CLI msg -> Update ()
 display widget =
   case widget of
-    Text s            -> Curses.drawString s
-    Row xs            -> String.intersperse " " <| List.map unpack xs
-    Button _ children -> "[ " ++ unpack (Row children) ++ " ]"
+    Text s -> Curses.drawString s
+    Row children -> do
+      let sizes = List.map getSize children
+      let maxHeight =
+            sizes |> List.map Tuple.second |> List.maximum |>
+            Maybe.withDefault 0
+      mapM_
+        (\(child, (width, height)) -> do
+           (r, c) <- Curses.cursorPosition
+           let vpad = (maxHeight - height) // 2
+           Curses.moveCursor (r + vpad) (c)
+           display child
+           Curses.moveCursor r (c + width + 1))
+        (List.zip children sizes)
+    Button _ children -> do
+      let (width, height) = getRowSize children
+      (r, c) <- Curses.cursorPosition
+      Curses.drawGlyph Curses.glyphCornerUL
+      Curses.moveCursor r (c + 1)
+      Curses.drawLineH (Just Curses.glyphLineH) (width)
+      Curses.moveCursor r (c + width + 1)
+      Curses.drawGlyph Curses.glyphCornerUR
+      Curses.moveCursor (r + 1) c
+      Curses.drawLineV (Just Curses.glyphLineV) (height)
+      Curses.moveCursor (r + height + 1) c
+      Curses.drawGlyph Curses.glyphCornerLL
+      Curses.drawLineH (Just Curses.glyphLineH) (width)
+      Curses.moveCursor (r + height + 1) (c + width + 1)
+      Curses.drawGlyph Curses.glyphCornerLR
+      Curses.moveCursor (r + 1) (c + width + 1)
+      Curses.drawLineV (Just Curses.glyphLineV) (height)
+      Curses.moveCursor (r + 1) (c + 1)
+      mapM_ display children
+
+getRowSize :: List (CLI msg) -> (Int, Int)
+getRowSize [] = (0, 0)
+getRowSize children =
+  let sizes = List.map getSize children
+      gapsWidth = List.length children - 1
+      widgetsWidth = List.sum <| List.map (Tuple.first) sizes
+      width = gapsWidth + widgetsWidth
+      height =
+        sizes |> List.map Tuple.second |> List.maximum |> Maybe.withDefault 0
+   in (width, height)
 
 getSize :: CLI msg -> (Int, Int)
 getSize widget =
   case widget of
     Text s -> (String.length s, 1)
     Row [] -> (0, 0)
-    Row xs ->
-      let sizes = List.map getSize xs
-          gapsWidth = List.length xs - 1
-          widgetsWidth = List.sum <| List.map (Tuple.first) sizes
-          width = gapsWidth + widgetsWidth
-          height =
-            sizes |> List.map Tuple.second |> List.maximum |>
-            Maybe.withDefault 0
-       in (width, 1)
+    Row children -> getRowSize children
+    Button _ children ->
+      let (width, height) = getRowSize children
+       in (width + 2, height + 2)
 
 sandbox ::
      model

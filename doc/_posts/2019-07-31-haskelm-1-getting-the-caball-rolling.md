@@ -4,10 +4,10 @@ tags: elm haskell
 ---
 
 ## Introduction ##
-HaskElm is a project in which I try and rewrite a Prelude for Haskell that feels like Elm's Prelude.
+*HaskElm is a project in which I try and rewrite a Prelude for Haskell that feels like Elm's Prelude.
 
 This set of posts is aimed at people with some experience in Elm (having read the guide should be enough) and no experience in Haskell.
-It is structured as a log of my explorations, rather than a tutorial or an howto, so it will have warts, false ends and errors (although I'll cut some of the uninteresting ones).
+It is structured as a log of my explorations, rather than a tutorial or an howto, so it will have warts, false ends and errors (although I'll cut some of the uninteresting ones).*
 
 Let's start with a minimal viable example: the target will be to compile the following program:
 
@@ -360,4 +360,4 @@ Linking dist/build/haskelm/haskelm ...
 ## In the next episode ##
 We'll ditch records and just try to build what we wanted to build in the first place!
 
-[Part II](/2019-08-01-haskelm-2-don-t-put-that-on-record)
+Continue to [Part II](/2019-08-01-haskelm-2-don-t-put-that-on-record)!
