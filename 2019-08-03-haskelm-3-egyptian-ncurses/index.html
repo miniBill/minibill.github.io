@@ -1,0 +1,587 @@
+<!doctype html><html><head><title>HaskElm #3: egyptian (n)curses | Ground Level Magic</title><meta charset="utf-8"><script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.15.1/highlight.min.js"></script><script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.15.1/languages/elm.min.js"></script><script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.15.1/languages/haskell.min.js"></script><script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.15.1/languages/bash.min.js"></script><script>hljs.initHighlightingOnLoad();</script><link href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.15.1/styles/default.min.css" rel="stylesheet" type="text/css"><link href="//fonts.googleapis.com/css?family=Open+Sans|Proza+Libre|Inconsolata" rel="stylesheet" type="text/css"></head><body><div class="header-logo"><img alt="Author's blog" src="/img/logo.png" width="100"></div><div class="navigation"><ul><li><a href="/posts">Posts</a></li><li><a href="/about">About</a></li><li><a href="/contact">Contact</a></li></ul></div><div class="sidebar"></div><div class="sidebar2"></div><div class="content"><h1>HaskElm #3: egyptian (n)curses</h1><div class="post-metadata"><span>2019-08-03</span><span>•</span><a href="/tags/elm">elm</a><a href="/tags/haskell">haskell</a></div><div class="markdown"><h2 id="introduction">Introduction</h2>
+<p>HaskElm is a project in which I try and rewrite a Prelude for Haskell that feels like Elm’s Prelude.</p>
+<p>This set of posts is aimed at people with some experience in Elm (having read the guide should be enough) and no experience in Haskell.
+It is structured as a log of my explorations, rather than a tutorial or an howto, so it will have warts, false ends and errors (although I’ll cut some of the uninteresting ones).</p>
+<p>In <a href="/2019-07-31-haskelm-1-getting-the-caball-rolling">part II</a> we actually managed to put something on the screen!</p>
+<p>In this episode we’ll start handling events.</p>
+<h2 id="messages">Messages</h2>
+<p>To handle messages we need two things:</p>
+<ol>
+<li>detecting mouse clicks,</li>
+<li>transforming clicks into <code>msg</code>s and feeding them to <code>update</code>.</li>
+</ol>
+<p>For working with the screen and mouse we’ll use the <code>ncurses</code> package.</p>
+<p>This will also let us block on events instead of looping and consuming CPU cycles.</p>
+<h3 id="ncurses">ncurses</h3>
+<pre><code class="lang-bash">$ sudo apt install c2hs
+$ cabal install ncurses
+</code></pre>
+<p><code>src/Protolude.hs</code>:</p>
+<pre><code class="lang-haskell">{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE PackageImports    #-}
+
+module Protolude
+  ( Appendable(..)
+  , Bool(..)
+  , Equatable(..)
+  , Int
+  , IO
+  , List
+  , Maybe(..)
+  , Number(..)
+  , Comparable(..)
+  , Order(..)
+  , String
+  , (&lt;|)
+  , (|&gt;)
+  , (&lt;&lt;)
+  , (&gt;&gt;)
+  , (//)
+  , max
+  , not
+  ) where
+
+import           "base" Prelude (Bool, IO, Maybe, String, not)
+import qualified "base" Prelude as P
+
+type Int = P.Integer
+
+type List a = [a]
+
+infixr 0 &lt;|
+
+(&lt;|) :: (a -&gt; b) -&gt; a -&gt; b
+f &lt;| x = f x
+
+infixl 0 |&gt;
+
+(|&gt;) :: a -&gt; (a -&gt; b) -&gt; b
+x |&gt; f = f x
+
+infixr 0 &lt;&lt;
+
+(&lt;&lt;) :: (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+(&lt;&lt;) f g x = f (g x)
+
+infixl 0 &gt;&gt;
+
+(&gt;&gt;) :: (a -&gt; b) -&gt; (b -&gt; c) -&gt; a -&gt; c
+(&gt;&gt;) g f x = f (g x)
+
+identity :: a -&gt; a
+identity x = x
+
+class Appendable a where
+  (++) :: a -&gt; a -&gt; a
+
+instance Appendable [a] where
+  (++) = (P.++)
+
+class Number a where
+  (+) :: a -&gt; a -&gt; a
+  (-) :: a -&gt; a -&gt; a
+  fromInteger :: P.Integer -&gt; a
+
+instance Number P.Integer where
+  (+) = (P.+)
+  (-) = (P.-)
+  fromInteger = identity
+
+(//) :: Int -&gt; Int -&gt; Int
+(//) = (P.div)
+
+class Equatable a where
+  (==) :: a -&gt; a -&gt; Bool
+
+class Equatable a =&gt;
+      Comparable a
+  where
+  compare :: a -&gt; a -&gt; Order
+
+instance Equatable P.Integer where
+  (==) = (P.==)
+
+instance Comparable P.Integer where
+  compare l r =
+    if l == r
+      then EQ
+      else if (P.&lt;) l r
+             then LT
+             else GT
+
+max :: Comparable a =&gt; a -&gt; a -&gt; a
+max l r =
+  case compare l r of
+    LT -&gt; r
+    _  -&gt; l
+
+data Order
+  = LT
+  | EQ
+  | GT
+</code></pre>
+<p>Not much to say here. We are implementing some more arithmetic. We lifted <code>not</code> from Haskell’s Prelude because it’s identical, but chose to reimplement comparisons because the names are different, and in the end I don’t want to expose typeclasses from HaskElm’s Prelude.</p>
+<p><code>src/Prelude.hs</code>:</p>
+<pre><code class="lang-haskell">module Prelude
+  ( Bool(..)
+  , Int
+  , IO
+  , List
+  , Maybe(..)
+  , Order(..)
+  , String
+  , (&lt;|)
+  , (|&gt;)
+  , (&lt;&lt;)
+  , (&gt;&gt;)
+  , (==)
+  , (++)
+  , (+)
+  , (-)
+  , (//)
+  , compare
+  , max
+  , not
+  ) where
+
+import           Protolude
+</code></pre>
+<p>Just re-exporting from <code>Protolude</code>. Notice how we don’t expose typeclasses.</p>
+<p>Then we have some obvious code:</p>
+<p><code>src/Tuple.hs</code>:</p>
+<pre><code class="lang-haskell">{-# LANGUAGE NoImplicitPrelude #-}
+
+module Tuple
+  ( first
+  , second
+  ) where
+
+first :: (a, b) -&gt; a
+first (x, _) = x
+
+second :: (a, b) -&gt; b
+second (_, x) = x
+</code></pre>
+<p><code>src/List.hs</code>:</p>
+<pre><code class="lang-haskell">{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE PackageImports    #-}
+
+module List
+  ( foldl
+  , intersperse
+  , length
+  , map
+  , maximum
+  , sum
+  , zip
+  ) where
+
+import qualified Maybe
+import qualified "base" Prelude as P
+import           Protolude
+
+map :: (a -&gt; b) -&gt; List a -&gt; List b
+map = P.map
+
+foldl :: (e -&gt; a -&gt; a) -&gt; a -&gt; List e -&gt; a
+foldl f = P.foldl (\a e -&gt; f e a)
+
+length :: List a -&gt; Int
+length = P.fromIntegral &lt;&lt; P.length
+
+maximum :: Comparable a =&gt; List a -&gt; Maybe a
+maximum []     = Nothing
+maximum [x]    = Just x
+maximum (x:xs) = Maybe.map (max x) (maximum xs)
+
+sum :: Number a =&gt; List a -&gt; a
+sum []     = fromInteger 0
+sum (x:xs) = x + sum xs
+
+intersperse :: a -&gt; List a -&gt; List a
+intersperse _ []     = []
+intersperse _ [x]    = [x]
+intersperse i (x:xs) = x : i : intersperse i xs
+
+zip :: List a -&gt; List b -&gt; List (a, b)
+zip = P.zip
+</code></pre>
+<p><code>src/String.hs</code>:</p>
+<pre><code class="lang-haskell">{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE PackageImports    #-}
+
+module String
+  ( fromInt
+  , intersperse
+  , length
+  ) where
+
+import qualified List
+import qualified "base" Prelude as P
+import           Protolude
+
+fromInt :: Int -&gt; String
+fromInt = P.show
+
+intersperse :: String -&gt; List String -&gt; String
+intersperse _ []     = ""
+intersperse s (x:xs) = List.foldl (\e a -&gt; e ++ s ++ a) x xs
+
+length :: String -&gt; Int
+length = P.fromIntegral &lt;&lt; P.length
+</code></pre>
+<p><code>src/Maybe.hs</code>:</p>
+<pre><code class="lang-haskell">module Maybe
+  ( map
+  , withDefault
+  ) where
+
+map :: (a -&gt; b) -&gt; Maybe a -&gt; Maybe b
+map _ Nothing  = Nothing
+map f (Just x) = Just (f x)
+
+withDefault :: a -&gt; Maybe a -&gt; a
+withDefault d Nothing  = d
+withDefault _ (Just x) = x
+</code></pre>
+<p>Everything is quite obvious. We recycled some functions from Haskell’s <code>Prelude</code>, but we could have reimplemented them, if needed.</p>
+<p><code>haskelm.cabal</code></p>
+<pre><code class="lang-cabal">name:                haskelm
+version:             0.1.0.0
+-- synopsis:
+-- description:
+license:             BSD3
+license-file:        LICENSE
+author:              Leonardo Taglialegne
+maintainer:          cmt.miniBill@gmail.com
+-- copyright:
+-- category:
+build-type:          Simple
+extra-source-files:  ChangeLog.md
+cabal-version:       &gt;=1.10
+
+library
+  exposed-modules:   Prelude, CLI, CLI.Attributes, List, Maybe, String, Tuple
+  other-modules:     Protolude
+  build-depends:     base &gt;=4.11 &amp;&amp; &lt;4.12, ncurses &gt;=0.2 &amp;&amp; &lt;0.3
+  hs-source-dirs:    src
+  default-language:  Haskell2010
+  ghc-options:       -Wall -Werror
+
+executable haskelm
+  main-is:           Main.hs
+  build-depends:     haskelm
+  hs-source-dirs:    app
+  default-language:  Haskell2010
+</code></pre>
+<p>Now <code>src/CLI.hs</code> becomes:</p>
+<pre><code class="lang-haskell">{-# LANGUAGE PackageImports #-}
+
+module CLI
+  ( CLI
+  , Program
+  , button
+  , row
+  , run
+  , run_
+  , sandbox
+  , text
+  ) where
+
+import           CLI.Attributes (Attribute)
+import qualified List
+import qualified Maybe
+import           "base" Prelude (mapM_, return)
+import qualified String
+import qualified Tuple
+import           UI.NCurses     (Curses, Update)
+import qualified UI.NCurses     as Curses
+
+data CLI msg
+  = Text String
+  | Row (List (CLI msg))
+  | Button (List (Attribute msg)) (List (CLI msg))
+
+data Program flags model msg =
+  Program
+    (flags -&gt; model)
+    (model -&gt; CLI msg)
+    (msg -&gt; model -&gt; (model, IO [msg]))
+
+run_ :: Program () model msg -&gt; IO ()
+run_ = run ()
+
+run :: flags -&gt; Program flags model msg -&gt; IO ()
+run flags (Program init view _) =
+  let model = init flags
+  -- runCurses initializes the ncurses library
+   in Curses.runCurses &lt;| do
+        _ &lt;- displayAndWait &lt;| view model
+        return ()
+
+-- Displays a widget in the top left corner of the screen
+-- and waits for an event
+displayAndWait :: CLI msg -&gt; Curses (Maybe Curses.Event)
+displayAndWait root = do
+  w &lt;- Curses.defaultWindow
+  -- updateWindow prepares the drawing
+  Curses.updateWindow w &lt;| do
+    Curses.moveCursor 0 0 -- Move the cursor in the top left corner
+    displayWidget root
+    Curses.moveCursor 0 0 -- Move the cursor in the top left corner, again
+  -- Actually do the drawing on screen
+  Curses.render
+  -- Wait for an event. "Nothing" means it should wait forever
+  Curses.getEvent w Nothing
+
+displayWidget :: CLI msg -&gt; Update ()
+displayWidget widget =
+  case widget of
+    Text s -&gt; Curses.drawString s -- A piece of text is simply written
+    Row children -&gt; do
+      let sizes = List.map getSize children
+      let maxHeight =
+            sizes |&gt; List.map Tuple.second |&gt; List.maximum |&gt;
+            Maybe.withDefault 0
+      -- mapM_ is like List.map, but it's used for functions whose
+      -- results are in a monad. It uses `map` to transform a List (Update a) into
+      -- a Update (List a). The underscore is a convention meaning "ignore the result",
+      -- so it becomes a Update ()
+      mapM_
+        (\(child, (width, height)) -&gt; do
+           (r, c) &lt;- Curses.cursorPosition
+           -- This is used to center vertically
+           let vpad = (maxHeight - height) // 2
+           Curses.moveCursor (r + vpad) (c)
+           displayWidget child
+           Curses.moveCursor r (c + width + 1))
+        (List.zip children sizes)
+    Button _ children -&gt; do
+      let (width, height) = getRowSize children
+      displayBox width height
+      displayWidget &lt;| Row children -- Just reuse the logic from Row
+
+-- Draws a box, and moves the cursor inside it
+displayBox :: Int -&gt; Int -&gt; Update ()
+displayBox width height = do
+  (r, c) &lt;- Curses.cursorPosition
+  Curses.drawGlyph Curses.glyphCornerUL
+  Curses.moveCursor r (c + 1)
+  Curses.drawLineH (Just Curses.glyphLineH) (width)
+  Curses.moveCursor r (c + width + 1)
+  Curses.drawGlyph Curses.glyphCornerUR
+  Curses.moveCursor (r + 1) c
+  Curses.drawLineV (Just Curses.glyphLineV) (height)
+  Curses.moveCursor (r + height + 1) c
+  Curses.drawGlyph Curses.glyphCornerLL
+  Curses.drawLineH (Just Curses.glyphLineH) (width)
+  Curses.moveCursor (r + height + 1) (c + width + 1)
+  Curses.drawGlyph Curses.glyphCornerLR
+  Curses.moveCursor (r + 1) (c + width + 1)
+  Curses.drawLineV (Just Curses.glyphLineV) (height)
+  Curses.moveCursor (r + 1) (c + 1)
+
+-- Get the size of a row of widgets
+getRowSize :: List (CLI msg) -&gt; (Int, Int)
+getRowSize [] = (0, 0)
+getRowSize children =
+  let sizes = List.map getSize children
+      gapsWidth = List.length children - 1
+      widgetsWidth = List.sum &lt;| List.map (Tuple.first) sizes
+      width = gapsWidth + widgetsWidth
+      height =
+        sizes |&gt; List.map Tuple.second |&gt; List.maximum |&gt; Maybe.withDefault 0
+   in (width, height)
+
+-- Get the size of a widget
+getSize :: CLI msg -&gt; (Int, Int)
+getSize widget =
+  case widget of
+    Text s -&gt; (String.length s, 1) -- Text is shown with no wrapping
+    Row [] -&gt; (0, 0)
+    Row children -&gt; getRowSize children
+    Button _ children -&gt;
+      let (width, height) = getRowSize children
+       in (width + 2, height + 2) -- +2 is for the border
+
+sandbox ::
+     model
+  -&gt; (model -&gt; CLI msg)
+  -&gt; (msg -&gt; model -&gt; model)
+  -&gt; Program () model msg
+sandbox init view update =
+  let init' _ = init
+      update' msg model = (update msg model, return [])
+   in Program init' view update'
+
+button :: List (Attribute msg) -&gt; List (CLI msg) -&gt; CLI msg
+button = Button
+
+row :: List (CLI msg) -&gt; CLI msg
+row = Row
+
+text :: String -&gt; CLI msg
+text = Text
+</code></pre>
+</div></div><div class="footer"><img alt="Author's blog" src="/img/logo.png" style="float: left; padding-top: 7px" width="75"><div class="link"><svg width="16" height="16" viewbox="0 0 16 16"><path fill="#fff" d="
+M7.999,0.431c-4.285,0-7.76,3.474-7.76,7.761 c0,3.428,2.223,6.337,5.307,7.363c0.388,0.071,0.53-0.168,0.53-0.374c0-0.184-0.007-0.672-0.01-1.32 c-2.159,0.469-2.614-1.04-2.614-1.04c-0.353-0.896-0.862-1.135-0.862-1.135c-0.705-0.481,0.053-0.472,0.053-0.472 c0.779,0.055,1.189,0.8,1.189,0.8c0.692,1.186,1.816,0.843,2.258,0.645c0.071-0.502,0.271-0.843,0.493-1.037 C4.86,11.425,3.049,10.76,3.049,7.786c0-0.847,0.302-1.54,0.799-2.082C3.768,5.507,3.501,4.718,3.924,3.65 c0,0,0.652-0.209,2.134,0.796C6.677,4.273,7.34,4.187,8,4.184c0.659,0.003,1.323,0.089,1.943,0.261 c1.482-1.004,2.132-0.796,2.132-0.796c0.423,1.068,0.157,1.857,0.077,2.054c0.497,0.542,0.798,1.235,0.798,2.082 c0,2.981-1.814,3.637-3.543,3.829c0.279,0.24,0.527,0.713,0.527,1.437c0,1.037-0.01,1.874-0.01,2.129 c0,0.208,0.14,0.449,0.534,0.373c3.081-1.028,5.302-3.935,5.302-7.362C15.76,3.906,12.285,0.431,7.999,0.431z
+            "></path></svg><a href="https://github.com">Author's GitHub</a></div><div class="link"><svg width="16" height="16" viewbox="0 0 16 16"><path fill="#fff" d="
+M15.969,3.058c-0.586,0.26-1.217,0.436-1.878,0.515c0.675-0.405,1.194-1.045,1.438-1.809 c-0.632,0.375-1.332,0.647-2.076,0.793c-0.596-0.636-1.446-1.033-2.387-1.033c-1.806,0-3.27,1.464-3.27,3.27 c0,0.256,0.029,0.506,0.085,0.745C5.163,5.404,2.753,4.102,1.14,2.124C0.859,2.607,0.698,3.168,0.698,3.767 c0,1.134,0.577,2.135,1.455,2.722C1.616,6.472,1.112,6.325,0.671,6.08c0,0.014,0,0.027,0,0.041c0,1.584,1.127,2.906,2.623,3.206 C3.02,9.402,2.731,9.442,2.433,9.442c-0.211,0-0.416-0.021-0.615-0.059c0.416,1.299,1.624,2.245,3.055,2.271 c-1.119,0.877-2.529,1.4-4.061,1.4c-0.264,0-0.524-0.015-0.78-0.046c1.447,0.928,3.166,1.469,5.013,1.469 c6.015,0,9.304-4.983,9.304-9.304c0-0.142-0.003-0.283-0.009-0.423C14.976,4.29,15.531,3.714,15.969,3.058z
+            "></path></svg><a href="https://twitter.com">Author's Twitter</a></div><div class="link"><a href="https://www.npmjs.com/package/elmstatic">Created with Elmstatic</a></div></div><link href="/styles.css" rel="stylesheet" type="text/css"><style>body {
+    padding:0px;
+    margin:0px;
+    background-color:#ffffff;
+    color:#363636;
+    font-family:Open Sans, Arial, sans-serif;
+    font-size:18px;
+    line-height:1.4em;
+}
+
+a {
+    color:#348aa7;
+    text-decoration:none;
+}
+
+code {
+    font-family:Inconsolata, monospace;
+}
+
+pre  code {
+    overflow-x:scroll !important;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-family:Proza Libre, Helvetica, sans-serif;
+    line-height:1.1em;
+}
+
+h1 {
+    font-size:2.66667em;
+    margin-bottom:2.0202rem;
+}
+
+h2 {
+    font-size:2em;
+    margin-bottom:1.61616rem;
+}
+
+h3 {
+    font-size:1.33333em;
+    margin-bottom:1.21212rem;
+}
+
+h4 {
+    font-size:1.2em;
+    margin-bottom:0.80808rem;
+}
+
+h5, h6 {
+    font-size:1em;
+    margin-bottom:0.60606rem;
+}
+
+p {
+    margin:auto auto 1.5rem;
+}
+
+small {
+    font-size:65%;
+}
+
+.header-logo {
+    padding-top:6px;
+    text-align:center;
+    background-color:#f2fae8;
+}
+
+@media only screen and (min-width: 600px) {
+    .header-logo {
+        text-align:left;
+    border-bottom:2px solid #3c8765;
+    }
+}
+
+.navigation {
+    text-align:center;
+    border-bottom:2px solid #3c8765;
+    background-color:#f2fae8;
+    padding:10px;
+    margin-top:-20px;
+}
+
+@media only screen and (min-width: 600px) {
+    .navigation {
+        margin-top:0px;
+    padding:0px;
+    text-align:right;
+    }
+}
+
+.navigation  ul {
+    margin:0px;
+    padding:0px;
+}
+
+@media only screen and (min-width: 600px) {
+    .navigation  ul {
+        line-height:100px;
+    }
+}
+
+.navigation  li {
+    display:inline-block;
+    margin-right:20px;
+}
+
+.content {
+    max-width:100vw;
+}
+
+.footer {
+    text-align:center;
+    border-top:2px solid #2f4858;
+    background-color:#348aa7;
+    color:#ffffff;
+}
+
+@media only screen and (min-width: 600px) {
+    .footer {
+        line-height:80px;
+    text-align:right;
+    }
+}
+
+@media only screen and (min-width: 600px) {
+    .footer  .link {
+        display:inline-block;
+    margin-right:20px;
+    }
+}
+
+.footer  a {
+    color:#ffffff;
+    text-decoration:none;
+}
+
+.footer  svg {
+    padding-right:5px;
+    vertical-align:baseline;
+}
+
+.post-metadata {
+    margin-top:-0.5em;
+    margin-bottom:2em;
+}
+
+.post-metadata  a, .post-metadata  span {
+    display:inline-block;
+    margin-right:5px;
+}
+
+.post-metadata  a {
+    border:1px solid #e0e0e0;
+    border-radius:3px;
+    background-color:#f2fae8;
+    padding-left:5px;
+    padding-right:5px;
+}</style></body></html>

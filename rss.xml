@@ -4,7 +4,7 @@
         <title>Ground Level Magic</title>
         <link>https://groundlevelmagic.tk/posts</link>
         <description>doing magic while keeping it simple</description>
-        <lastBuildDate>Thu, 01 Aug 2019 19:02:09 GMT</lastBuildDate>
+        <lastBuildDate>Sat, 03 Aug 2019 14:58:45 GMT</lastBuildDate>
         <docs>http://blogs.law.harvard.edu/tech/rss</docs>
         <generator>Elmstatic</generator>
         <language>en</language>
@@ -21,23 +21,12 @@
             <pubDate>Wed, 31 Jul 2019 00:00:00 GMT</pubDate>
             <description><![CDATA[
 Introduction
-HaskElm is a project in which I try and rewrite a Prelude for Haskell that feels like Elm's Prelude.
+*HaskElm is a project in which I try and rewrite a Prelude for Haskell that feels like Elm's Prelude.
 
-This set of posts is structured as a log of my explorations, rather than a tutorial or an howto, so it will have warts, false ends and errors (although I'll cut some of the uninteresting ones).
+This set of posts is aimed at people with some experience in Elm (having read the guide should be enough) and no experience in Haskell.
+It is structured as a log of my explorations, rather than a tutorial or an howto, so it will have warts, false ends and errors (although I'll cut some of the uninteresting ones).*
 
-Let's start with a minimal viable example: the target will be to compile the following program:
-
-module Main
-  ( main
-  ) where
-
-import           CLI
-
-type Flags = ()
-
-type Model = ()
-
-type...]]></description>
+Let's start with a minimal viable example: the target will be to c...]]></description>
         </item>
         <item>
             <title><![CDATA[HaskElm #2: don't put that on record]]></title>
@@ -46,13 +35,30 @@ type...]]></description>
             <pubDate>Thu, 01 Aug 2019 00:00:00 GMT</pubDate>
             <description><![CDATA[
 Introduction
-In part 1 we tried to work with records in Haskell.
+HaskElm is a project in which I try and rewrite a Prelude for Haskell that feels like Elm's Prelude.
 
-It was painful but we were finally able to compile something using HList and some fairly recent GHC extensions.
+This set of posts is aimed at people with some experience in Elm (having read the guide should be enough) and no experience in Haskell.
+It is structured as a log of my explorations, rather than a tutorial or an howto, so it will have warts, false ends and errors (although I'll cut some of the uninteresting ones).
 
-In the end I don't think the pain is worth the result (right now), so we'll drop records and Keep It Simple.
+In part I we tried to work with records in Haskell.
 
-Everything is formatted with hfmt, which is an opinionated formatted, à la gofmt or elm-format, so you may not like its style (I don't), but it eliminates bikeshedding and lost time on formatting decisions, so ...]]></description>
+It was painful ...]]></description>
+        </item>
+        <item>
+            <title><![CDATA[HaskElm #3: egyptian (n)curses]]></title>
+            <link>https://groundlevelmagic.tk/posts/2019-08-03-haskelm-3-egyptian-ncurses</link>
+            <guid>https://groundlevelmagic.tk/posts/2019-08-03-haskelm-3-egyptian-ncurses</guid>
+            <pubDate>Sat, 03 Aug 2019 00:00:00 GMT</pubDate>
+            <description><![CDATA[
+Introduction
+HaskElm is a project in which I try and rewrite a Prelude for Haskell that feels like Elm's Prelude.
+
+This set of posts is aimed at people with some experience in Elm (having read the guide should be enough) and no experience in Haskell.
+It is structured as a log of my explorations, rather than a tutorial or an howto, so it will have warts, false ends and errors (although I'll cut some of the uninteresting ones).
+
+In part II we actually managed to put something on the screen!
+
+In t...]]></description>
         </item>
         <item>
             <title><![CDATA[All posts]]></title>
