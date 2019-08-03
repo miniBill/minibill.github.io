@@ -29,7 +29,7 @@ data Program flags model msg =
   Program
     (flags -> model)
     (model -> CLI msg)
-    (msg -> model -> (model, IO [msg]))
+    (msg -> model -> (model, IO (List msg)))
 
 run_ :: Program () model msg -> IO ()
 run_ = run ()
@@ -42,7 +42,7 @@ run flags (Program init view update) =
 
 mainLoop ::
      (model -> CLI msg)
-  -> (msg -> model -> (model, IO [msg]))
+  -> (msg -> model -> (model, IO (List msg)))
   -> model
   -> Curses ()
 mainLoop view update =
@@ -64,7 +64,7 @@ mainLoop view update =
    in go
 
 -- Returns Nothing to exit, Just msgs for messages
-eventToMsgs :: CLI msg -> Curses.Event -> Maybe [msg]
+eventToMsgs :: CLI msg -> Curses.Event -> Maybe (List msg) f
 eventToMsgs root event =
   case event of
     Curses.EventMouse _ mouseState ->
@@ -80,7 +80,7 @@ eventToMsgs root event =
     Curses.EventCharacter 'q' -> Nothing
     _ -> Just []
 
-onClick :: Int -> Int -> CLI msg -> [msg]
+onClick :: Int -> Int -> CLI msg -> List msg
 onClick x y root =
   case root of
     Text _ -> []
