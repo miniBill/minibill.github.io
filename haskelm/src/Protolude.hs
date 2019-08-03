@@ -18,11 +18,19 @@ module Protolude
   , (<<)
   , (>>)
   , (//)
+  , (||)
+  , (&&)
+  , (<)
+  , (<=)
+  , (>)
+  , (>=)
+  , always
+  , min
   , max
   , not
   ) where
 
-import           "base" Prelude (Bool, IO, Maybe, String, not)
+import           "base" Prelude (Bool (..), IO, Maybe, String, not, (&&), (||))
 import qualified "base" Prelude as P
 
 type Int = P.Integer
@@ -51,6 +59,9 @@ infixl 0 >>
 
 identity :: a -> a
 identity x = x
+
+always :: a -> b -> a
+always x _ = x
 
 class Appendable a where
   (++) :: a -> a -> a
@@ -89,6 +100,44 @@ instance Comparable P.Integer where
       else if (P.<) l r
              then LT
              else GT
+
+infix 4 <
+
+(<) :: Comparable a => a -> a -> Bool
+l < r =
+  case compare l r of
+    LT -> True
+    _  -> False
+
+infix 4 <=
+
+(<=) :: Comparable a => a -> a -> Bool
+l <= r =
+  case compare l r of
+    GT -> False
+    _  -> True
+
+infix 4 >
+
+(>) :: Comparable a => a -> a -> Bool
+l > r =
+  case compare l r of
+    GT -> True
+    _  -> False
+
+infix 4 >=
+
+(>=) :: Comparable a => a -> a -> Bool
+l >= r =
+  case compare l r of
+    LT -> False
+    _  -> True
+
+min :: Comparable a => a -> a -> a
+min l r =
+  case compare l r of
+    GT -> r
+    _  -> l
 
 max :: Comparable a => a -> a -> a
 max l r =

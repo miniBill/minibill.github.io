@@ -1,5 +1,5 @@
 module CLI.Attributes
-  ( Attribute
+  ( Attribute(..)
   , onClick
   ) where
 

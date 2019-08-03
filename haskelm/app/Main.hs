@@ -2,7 +2,7 @@ module Main
   ( main
   ) where
 
-import           CLI            (button, row, text)
+import           CLI            (CLI, button, row, text)
 import qualified CLI
 import           CLI.Attributes (onClick)
 
@@ -16,11 +16,13 @@ data Msg
   = Increment
   | Decrement
 
+update :: Msg -> Int -> Int
 update msg model =
   case msg of
     Increment -> model + 1
     Decrement -> model - 1
 
+view :: Int -> CLI Msg
 view model =
   row
     [ button [onClick Decrement] [text "-"]

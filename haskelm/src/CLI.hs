@@ -11,7 +11,7 @@ module CLI
   , text
   ) where
 
-import           CLI.Attributes (Attribute)
+import           CLI.Attributes (Attribute (..))
 import qualified List
 import qualified Maybe
 import           "base" Prelude (mapM_, return)
@@ -35,12 +35,76 @@ run_ :: Program () model msg -> IO ()
 run_ = run ()
 
 run :: flags -> Program flags model msg -> IO ()
-run flags (Program init view _) =
+run flags (Program init view update) =
   let model = init flags
   -- runCurses initializes the ncurses library
-   in Curses.runCurses <| do
-        _ <- displayAndWait <| view model
-        return ()
+   in Curses.runCurses <| mainLoop view update model
+
+mainLoop ::
+     (model -> CLI msg)
+  -> (msg -> model -> (model, IO [msg]))
+  -> model
+  -> Curses ()
+mainLoop view update =
+  let go model = do
+        let root = view model
+        maybeEvent <- displayAndWait root
+        case maybeEvent of
+          Nothing -> go model -- Something went wrong, just keep going
+          Just event -> do
+            let maybeMsgs = eventToMsgs root event
+            case maybeMsgs of
+              Nothing -> return () -- Exit
+              Just msgs -> do
+                let (model', _) = List.foldl step (model, []) msgs
+                go model'
+      step msg (mod, cmds) =
+        let (mod', cmd) = update msg mod
+         in (mod', cmd : cmds)
+   in go
+
+-- Returns Nothing to exit, Just msgs for messages
+eventToMsgs :: CLI msg -> Curses.Event -> Maybe [msg]
+eventToMsgs root event =
+  case event of
+    Curses.EventMouse _ mouseState ->
+      let (x, y, _) = Curses.mouseCoordinates mouseState
+       in if List.any
+               (\(_, b) ->
+                  case b of
+                    Curses.ButtonClicked -> True
+                    _                    -> False)
+               (Curses.mouseButtons mouseState)
+            then Just <| onClick x y root
+            else Just []
+    Curses.EventCharacter 'q' -> Nothing
+    _ -> Just []
+
+onClick :: Int -> Int -> CLI msg -> [msg]
+onClick x y root =
+  case root of
+    Text _ -> []
+    Row [] -> []
+    Row (child:children) ->
+      let (width, height) = getSize child
+       in if x < width
+            then if y < height
+                   then onClick x y child
+                   else []
+            else if x == width
+                   then []
+                   else onClick (x - width - 1) y (Row children)
+    Button attrs children ->
+      let (w, h) = getRowSize children
+          msgs =
+            List.filterMap
+              (\attr ->
+                 case attr of
+                   OnClick msg -> Just msg)
+              attrs
+       in if x < (w + 2) && y < (h + 2)
+            then msgs
+            else []
 
 -- Displays a widget in the top left corner of the screen
 -- and waits for an event
@@ -50,12 +114,13 @@ displayAndWait root = do
   -- updateWindow prepares the drawing
   Curses.updateWindow w <| do
     Curses.moveCursor 0 0 -- Move the cursor in the top left corner
+    Curses.clear
     displayWidget root
     Curses.moveCursor 0 0 -- Move the cursor in the top left corner, again
   -- Actually do the drawing on screen
   Curses.render
   -- Wait for an event. "Nothing" means it should wait forever
-  Curses.getEvent w Nothing
+  Curses.catchCurses (Curses.getEvent w Nothing) (always <| return Nothing)
 
 displayWidget :: CLI msg -> Update ()
 displayWidget widget =

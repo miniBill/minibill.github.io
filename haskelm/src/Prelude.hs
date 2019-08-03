@@ -15,7 +15,15 @@ module Prelude
   , (+)
   , (-)
   , (//)
+  , (||)
+  , (&&)
+  , (<)
+  , (<=)
+  , (>)
+  , (>=)
+  , always
   , compare
+  , min
   , max
   , not
   ) where

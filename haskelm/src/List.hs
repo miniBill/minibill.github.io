@@ -2,7 +2,9 @@
 {-# LANGUAGE PackageImports    #-}
 
 module List
-  ( foldl
+  ( any
+  , foldl
+  , filterMap
   , intersperse
   , length
   , map
@@ -15,8 +17,19 @@ import qualified Maybe
 import qualified "base" Prelude as P
 import           Protolude
 
+any :: (a -> Bool) -> List a -> Bool
+any _ []     = False
+any f (x:xs) = f x || any f xs
+
 map :: (a -> b) -> List a -> List b
 map = P.map
+
+filterMap :: (a -> Maybe b) -> List a -> List b
+filterMap _ [] = []
+filterMap f (x:xs) =
+  case f x of
+    Just y  -> y : filterMap f xs
+    Nothing -> filterMap f xs
 
 foldl :: (e -> a -> a) -> a -> List e -> a
 foldl f = P.foldl (\a e -> f e a)
