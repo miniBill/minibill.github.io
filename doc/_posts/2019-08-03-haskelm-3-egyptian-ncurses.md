@@ -50,11 +50,19 @@ module Protolude
   , (<<)
   , (>>)
   , (//)
+  , (||)
+  , (&&)
+  , (<)
+  , (<=)
+  , (>)
+  , (>=)
+  , always
+  , min
   , max
   , not
   ) where
 
-import           "base" Prelude (Bool, IO, Maybe, String, not)
+import           "base" Prelude (Bool (..), IO, Maybe, String, not, (&&), (||))
 import qualified "base" Prelude as P
 
 type Int = P.Integer
@@ -83,6 +91,9 @@ infixl 0 >>
 
 identity :: a -> a
 identity x = x
+
+always :: a -> b -> a
+always x _ = x
 
 class Appendable a where
   (++) :: a -> a -> a
@@ -122,6 +133,44 @@ instance Comparable P.Integer where
              then LT
              else GT
 
+infix 4 <
+
+(<) :: Comparable a => a -> a -> Bool
+l < r =
+  case compare l r of
+    LT -> True
+    _  -> False
+
+infix 4 <=
+
+(<=) :: Comparable a => a -> a -> Bool
+l <= r =
+  case compare l r of
+    GT -> False
+    _  -> True
+
+infix 4 >
+
+(>) :: Comparable a => a -> a -> Bool
+l > r =
+  case compare l r of
+    GT -> True
+    _  -> False
+
+infix 4 >=
+
+(>=) :: Comparable a => a -> a -> Bool
+l >= r =
+  case compare l r of
+    LT -> False
+    _  -> True
+
+min :: Comparable a => a -> a -> a
+min l r =
+  case compare l r of
+    GT -> r
+    _  -> l
+
 max :: Comparable a => a -> a -> a
 max l r =
   case compare l r of
@@ -155,7 +204,15 @@ module Prelude
   , (+)
   , (-)
   , (//)
+  , (||)
+  , (&&)
+  , (<)
+  , (<=)
+  , (>)
+  , (>=)
+  , always
   , compare
+  , min
   , max
   , not
   ) where
@@ -189,7 +246,9 @@ second (_, x) = x
 {-# LANGUAGE PackageImports    #-}
 
 module List
-  ( foldl
+  ( any
+  , foldl
+  , filterMap
   , intersperse
   , length
   , map
@@ -202,8 +261,19 @@ import qualified Maybe
 import qualified "base" Prelude as P
 import           Protolude
 
+any :: (a -> Bool) -> List a -> Bool
+any _ []     = False
+any f (x:xs) = f x || any f xs
+
 map :: (a -> b) -> List a -> List b
 map = P.map
+
+filterMap :: (a -> Maybe b) -> List a -> List b
+filterMap _ [] = []
+filterMap f (x:xs) =
+  case f x of
+    Just y  -> y : filterMap f xs
+    Nothing -> filterMap f xs
 
 foldl :: (e -> a -> a) -> a -> List e -> a
 foldl f = P.foldl (\a e -> f e a)
@@ -459,10 +529,226 @@ So, we've got `displayAndWait` that returns a `Maybe Curses.Event` (wrapped in a
 
 We will implement a `eventToMsgs :: Curses.Event -> CLI msg -> List msg` (the `List` makes code simpler), we already have a `displayAndWait :: CLI msg -> Curses (Maybe Curses.Event)` and we want to create a loop that will have type `Curses ()`.
 
-The function will take the initial model:
+The main working function will take the model, `displayAndWait` it, transform the `Curses.Event` into a `msg`, `update` the model, do the side effects and then... call itself!
 
+There are a lot of details, let's have a look:
+
+`src/CLI.hs`:
 ```haskell
-mainLoop model view update = do
-  let root = view model
-  event <- displayAndWait 
+{-# LANGUAGE PackageImports #-}
+
+module CLI
+  ( CLI
+  , Program
+  , button
+  , row
+  , run
+  , run_
+  , sandbox
+  , text
+  ) where
+
+import           CLI.Attributes (Attribute (..))
+import qualified List
+import qualified Maybe
+import           "base" Prelude (mapM_, return)
+import qualified String
+import qualified Tuple
+import           UI.NCurses     (Curses, Update)
+import qualified UI.NCurses     as Curses
+
+data CLI msg
+  = Text String
+  | Row (List (CLI msg))
+  | Button (List (Attribute msg)) (List (CLI msg))
+
+data Program flags model msg =
+  Program
+    (flags -> model)
+    (model -> CLI msg)
+    (msg -> model -> (model, IO [msg]))
+
+run_ :: Program () model msg -> IO ()
+run_ = run ()
+
+run :: flags -> Program flags model msg -> IO ()
+run flags (Program init view update) =
+  let model = init flags
+  -- runCurses initializes the ncurses library
+   in Curses.runCurses <| mainLoop view update model
+
+mainLoop ::
+     (model -> CLI msg)
+  -> (msg -> model -> (model, IO [msg]))
+  -> model
+  -> Curses ()
+mainLoop view update =
+  let go model = do
+        let root = view model
+        maybeEvent <- displayAndWait root
+        case maybeEvent of
+          Nothing -> go model -- Something went wrong, just keep going
+          Just event -> do
+            let maybeMsgs = eventToMsgs root event
+            case maybeMsgs of
+              Nothing -> return () -- Exit
+              Just msgs -> do
+                let (model', _) = List.foldl step (model, []) msgs
+                go model'
+      step msg (mod, cmds) =
+        let (mod', cmd) = update msg mod
+         in (mod', cmd : cmds)
+   in go
+
+-- Returns Nothing to exit, Just msgs for messages
+eventToMsgs :: CLI msg -> Curses.Event -> Maybe [msg]
+eventToMsgs root event =
+  case event of
+    Curses.EventMouse _ mouseState ->
+      let (x, y, _) = Curses.mouseCoordinates mouseState
+       in if List.any
+               (\(_, b) ->
+                  case b of
+                    Curses.ButtonClicked -> True
+                    _                    -> False)
+               (Curses.mouseButtons mouseState)
+            then Just <| onClick x y root
+            else Just []
+    -- Right now we will hardcode pressing "Q" as quit
+    Curses.EventCharacter 'q' -> Nothing
+    _ -> Just []
+
+-- onClick tries to find the clicked widget, and extracts the msgs
+onClick :: Int -> Int -> CLI msg -> [msg]
+onClick x y root =
+  case root of
+    Text _ -> []
+    Row [] -> []
+    Row (child:children) ->
+      let (width, height) = getSize child
+       in if x < width
+            then if y < height
+                   then onClick x y child
+                   else []
+            else if x == width
+                   then []
+                   else onClick (x - width - 1) y (Row children)
+    Button attrs children ->
+      let (w, h) = getRowSize children
+          msgs =
+            List.filterMap
+              (\attr ->
+                 case attr of
+                   OnClick msg -> Just msg)
+              attrs
+       in if x < (w + 2) && y < (h + 2)
+            then msgs
+            else []
+
+-- Displays a widget in the top left corner of the screen
+-- and waits for an event
+displayAndWait :: CLI msg -> Curses (Maybe Curses.Event)
+displayAndWait root = do
+  w <- Curses.defaultWindow
+  -- updateWindow prepares the drawing
+  Curses.updateWindow w <| do
+    Curses.moveCursor 0 0 -- Move the cursor in the top left corner
+    Curses.clear
+    displayWidget root
+    Curses.moveCursor 0 0 -- Move the cursor in the top left corner, again
+  -- Actually do the drawing on screen
+  Curses.render
+  -- Wait for an event. "Nothing" means it should wait forever
+  Curses.catchCurses (Curses.getEvent w Nothing) (always <| return Nothing)
+
+displayWidget :: CLI msg -> Update ()
+displayWidget widget =
+  case widget of
+    Text s -> Curses.drawString s -- A piece of text is simply written
+    Row children -> do
+      let sizes = List.map getSize children
+      let maxHeight =
+            sizes |> List.map Tuple.second |> List.maximum |>
+            Maybe.withDefault 0
+      -- mapM_ is like List.map, but it's used for functions whose
+      -- results are in a monad. It uses map to transform a List (Update a) into
+      -- a Update (List a). The underscore is a convention meaning "ignore the result",
+      -- so it becomes a Update ()
+      mapM_
+        (\(child, (width, height)) -> do
+           (r, c) <- Curses.cursorPosition
+           -- This is used to center vertically
+           let vpad = (maxHeight - height) // 2
+           Curses.moveCursor (r + vpad) (c)
+           displayWidget child
+           Curses.moveCursor r (c + width + 1))
+        (List.zip children sizes)
+    Button _ children -> do
+      let (width, height) = getRowSize children
+      displayBox width height
+      displayWidget <| Row children -- Just reuse the logic from Row
+
+-- Draws a box, and moves the cursor inside it
+displayBox :: Int -> Int -> Update ()
+displayBox width height = do
+  (r, c) <- Curses.cursorPosition
+  Curses.drawGlyph Curses.glyphCornerUL
+  Curses.moveCursor r (c + 1)
+  Curses.drawLineH (Just Curses.glyphLineH) (width)
+  Curses.moveCursor r (c + width + 1)
+  Curses.drawGlyph Curses.glyphCornerUR
+  Curses.moveCursor (r + 1) c
+  Curses.drawLineV (Just Curses.glyphLineV) (height)
+  Curses.moveCursor (r + height + 1) c
+  Curses.drawGlyph Curses.glyphCornerLL
+  Curses.drawLineH (Just Curses.glyphLineH) (width)
+  Curses.moveCursor (r + height + 1) (c + width + 1)
+  Curses.drawGlyph Curses.glyphCornerLR
+  Curses.moveCursor (r + 1) (c + width + 1)
+  Curses.drawLineV (Just Curses.glyphLineV) (height)
+  Curses.moveCursor (r + 1) (c + 1)
+
+-- Get the size of a row of widgets
+getRowSize :: List (CLI msg) -> (Int, Int)
+getRowSize [] = (0, 0)
+getRowSize children =
+  let sizes = List.map getSize children
+      gapsWidth = List.length children - 1
+      widgetsWidth = List.sum <| List.map (Tuple.first) sizes
+      width = gapsWidth + widgetsWidth
+      height =
+        sizes |> List.map Tuple.second |> List.maximum |> Maybe.withDefault 0
+   in (width, height)
+
+-- Get the size of a widget
+getSize :: CLI msg -> (Int, Int)
+getSize widget =
+  case widget of
+    Text s -> (String.length s, 1) -- Text is shown with no wrapping
+    Row [] -> (0, 0)
+    Row children -> getRowSize children
+    Button _ children ->
+      let (width, height) = getRowSize children
+       in (width + 2, height + 2) -- +2 is for the border
+
+sandbox ::
+     model
+  -> (model -> CLI msg)
+  -> (msg -> model -> model)
+  -> Program () model msg
+sandbox init view update =
+  let init' _ = init
+      update' msg model = (update msg model, return [])
+   in Program init' view update'
+
+button :: List (Attribute msg) -> List (CLI msg) -> CLI msg
+button = Button
+
+row :: List (CLI msg) -> CLI msg
+row = Row
+
+text :: String -> CLI msg
+text = Text
 ```
+
+Run and voilà! We've got the counter example working with the MOUSE!
