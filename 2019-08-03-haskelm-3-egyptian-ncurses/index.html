@@ -376,7 +376,7 @@ data Program flags model msg =
   Program
     (flags -&gt; model)
     (model -&gt; CLI msg)
-    (msg -&gt; model -&gt; (model, IO [msg]))
+    (msg -&gt; model -&gt; (model, IO (List msg)))
 
 run_ :: Program () model msg -&gt; IO ()
 run_ = run ()
@@ -529,7 +529,7 @@ data Program flags model msg =
   Program
     (flags -&gt; model)
     (model -&gt; CLI msg)
-    (msg -&gt; model -&gt; (model, IO [msg]))
+    (msg -&gt; model -&gt; (model, IO (List msg)))
 
 run_ :: Program () model msg -&gt; IO ()
 run_ = run ()
@@ -542,7 +542,7 @@ run flags (Program init view update) =
 
 mainLoop ::
      (model -&gt; CLI msg)
-  -&gt; (msg -&gt; model -&gt; (model, IO [msg]))
+  -&gt; (msg -&gt; model -&gt; (model, IO (List msg)))
   -&gt; model
   -&gt; Curses ()
 mainLoop view update =
@@ -564,7 +564,7 @@ mainLoop view update =
    in go
 
 -- Returns Nothing to exit, Just msgs for messages
-eventToMsgs :: CLI msg -&gt; Curses.Event -&gt; Maybe [msg]
+eventToMsgs :: CLI msg -&gt; Curses.Event -&gt; Maybe (List msg)
 eventToMsgs root event =
   case event of
     Curses.EventMouse _ mouseState -&gt;
@@ -582,7 +582,7 @@ eventToMsgs root event =
     _ -&gt; Just []
 
 -- onClick tries to find the clicked widget, and extracts the msgs
-onClick :: Int -&gt; Int -&gt; CLI msg -&gt; [msg]
+onClick :: Int -&gt; Int -&gt; CLI msg -&gt; List msg3
 onClick x y root =
   case root of
     Text _ -&gt; []
