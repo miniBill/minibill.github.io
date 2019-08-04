@@ -22,11 +22,13 @@ For working with the screen and mouse we'll use the `ncurses` package.
 
 This will also let us block on events instead of looping and consuming CPU cycles.
 
-### ncurses ###
+## ncurses ##
 ```bash
 $ sudo apt install c2hs
 $ cabal install ncurses
 ```
+
+## Implementation ##
 
 `src/Protolude.hs`:
 ```haskell
@@ -752,3 +754,8 @@ text = Text
 ```
 
 Run and voilà! We've got the counter example working with the MOUSE!
+
+## In the next episode ##
+We'll finish implementing the Prelude.
+
+Continue to [Part IV](/2019-08-04-haskelm-4-prelude-to-the-foundation)!
