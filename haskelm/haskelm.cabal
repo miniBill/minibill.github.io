@@ -14,11 +14,11 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:    Prelude, CLI, CLI.Attributes, List, Maybe, String, Tuple
-  other-modules:      Protolude
-  build-depends:      base >=4.11 && <4.12, ncurses >=0.2 && <0.3
+  other-modules:      Protolude, Kernel, Hack, String.Internal
+  build-depends:      base >=4.11 && <4.12, ncurses >=0.2 && <0.3, text >=1.2 && <1.3
   hs-source-dirs:     src
   default-language:   Haskell2010
-  default-extensions: Strict, StrictData
+  default-extensions: Strict, StrictData, RebindableSyntax, NoImplicitPrelude
   ghc-options:        -Wall -Werror -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints
 
 executable haskelm
@@ -26,5 +26,5 @@ executable haskelm
   build-depends:      haskelm
   hs-source-dirs:     app
   default-language:   Haskell2010
-  default-extensions: Strict, StrictData
+  default-extensions: Strict, StrictData, RebindableSyntax
   ghc-options:        -Wall -Werror -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints

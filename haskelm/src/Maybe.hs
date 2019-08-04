@@ -1,7 +1,10 @@
 module Maybe
-  ( map
+  ( Maybe(..)
+  , map
   , withDefault
   ) where
+
+import           Kernel (Maybe (..))
 
 map :: (a -> b) -> Maybe a -> Maybe b
 map _ Nothing  = Nothing

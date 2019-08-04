@@ -1,3 +1,5 @@
+{-# LANGUAGE NoRebindableSyntax #-}
+
 module Prelude
   ( Bool(..)
   , Int
@@ -26,6 +28,9 @@ module Prelude
   , min
   , max
   , not
+  , fromInteger
+  , ifThenElse
   ) where
 
 import           Protolude
+import           String    (String)

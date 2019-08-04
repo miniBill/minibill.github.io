@@ -1,5 +1,4 @@
-{-# LANGUAGE NoImplicitPrelude #-}
-{-# LANGUAGE PackageImports    #-}
+{-# LANGUAGE PackageImports #-}
 
 module List
   ( singleton
@@ -42,6 +41,7 @@ module List
 
 import qualified Data.List
 
+import           Maybe          (Maybe (..))
 import qualified "base" Prelude as P
 import           Protolude
 
@@ -280,7 +280,7 @@ append xs ys =
     concat [[1,2],[3],[4,5]] == [1,2,3,4,5]
 -}
 concat :: List (List a) -> List a
-concat lists = foldr append [] lists
+concat lists = foldr List.append [] lists
 
 {-| Map a given function onto a list and flatten the resulting lists.
     concatMap f xs == concat (map f xs)

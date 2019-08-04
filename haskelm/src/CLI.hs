@@ -1,4 +1,5 @@
-{-# LANGUAGE PackageImports #-}
+{-# LANGUAGE ImplicitPrelude #-}
+{-# LANGUAGE PackageImports  #-}
 
 module CLI
   ( CLI
@@ -11,14 +12,16 @@ module CLI
   , text
   ) where
 
-import           CLI.Attributes (Attribute (..))
+import           CLI.Attributes  (Attribute (..))
 import qualified List
 import qualified Maybe
-import           "base" Prelude (mapM_, return)
+import           Prelude         hiding ((>>))
+import           "base" Prelude  (Monad (..), mapM_)
 import qualified String
+import qualified String.Internal
 import qualified Tuple
-import           UI.NCurses     (Curses, Update)
-import qualified UI.NCurses     as Curses
+import           UI.NCurses      (Curses, Update)
+import qualified UI.NCurses      as Curses
 
 data CLI msg
   = Text String
@@ -129,7 +132,7 @@ displayAndWait root = do
 displayWidget :: CLI msg -> Update ()
 displayWidget widget =
   case widget of
-    Text s -> Curses.drawString s -- A piece of text is simply written
+    Text s -> Curses.drawString (String.Internal.unpack s) -- A piece of text is simply written
     Row children -> do
       let sizes = List.map getSize children
       let maxHeight =
