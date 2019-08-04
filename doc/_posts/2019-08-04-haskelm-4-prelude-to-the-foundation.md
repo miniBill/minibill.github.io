@@ -24,6 +24,8 @@ A quick `cabal run` after, everything seems to work correctly, so let's go on!
 
 We'll copy the implementation from Elm's own `core`.
 
+It's much more ergonomic to just type alias the types from Haskell's `Prelude`, so `Maybe`, `Int`, `Bool` and other types are just aliased from `Prelude` instead of redefining them.
+
 ## In the next episode ##
 We'll implement subscriptions, which will require us to go deeper down the rabbit hole of multithreading in Haskell.
 

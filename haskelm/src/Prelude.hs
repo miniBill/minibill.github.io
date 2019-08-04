@@ -29,7 +29,6 @@ module Prelude
   , max
   , not
   , fromInteger
-  , ifThenElse
   ) where
 
 import           Protolude

@@ -47,7 +47,6 @@ module Kernel
   , truncate
   , modBy
   , remainderBy
-  , ifThenElse
   ) where
 
 import qualified Hack
@@ -105,20 +104,23 @@ class Comparable a =>
   mul :: a -> a -> a
   sub :: a -> a -> a
   pow :: a -> a -> a
+  negate :: a -> a
   fromInteger :: P.Integer -> a
 
 instance Number Int where
-  add l r = (P.+) l r
-  mul l r = Hack.mul l r
-  sub l r = (P.-) l r
-  pow l r = (P.^) l r
+  add = (P.+)
+  mul = Hack.mul
+  sub = (P.-)
+  pow = (P.^)
+  negate = P.negate
   fromInteger i = i
 
 instance Number Float where
-  add l r = (P.+) l r
-  mul l r = Hack.mul l r
-  sub l r = (P.-) l r
-  pow l r = (P.**) l r
+  add = (P.+)
+  mul = Hack.mul
+  sub = (P.-)
+  pow = (P.**)
+  negate = P.negate
   fromInteger = P.fromInteger
 
 data Order
@@ -248,9 +250,3 @@ modBy by val = P.mod val by
 
 remainderBy :: Int -> Int -> Int
 remainderBy by val = P.rem val by
-
-ifThenElse :: Bool -> a -> a -> a
-ifThenElse b ~l ~r =
-  case b of
-    True  -> l
-    False -> r

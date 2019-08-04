@@ -66,14 +66,13 @@ module Protolude
   , Never
   , never
   , fromInteger
-  , ifThenElse
   , IO
   , Maybe(..)
   ) where
 
 import           Kernel (Appendable, Bool (..), Comparable, Equatable, IO, List,
                          Maybe (..), Number, Order (..))
-import           Kernel (fromInteger, ifThenElse)
+import           Kernel (fromInteger)
 import qualified Kernel
 
 {-| Tons of useful functions that get imported by default.
@@ -525,7 +524,7 @@ remainderBy = Kernel.remainderBy
     negate 0 == 0
 -}
 negate :: Number number => number -> number
-negate n = -n
+negate n = Kernel.negate n
 
 {-| Get the [absolute value][abs] of a number.
     abs 16   == 16
@@ -536,8 +535,8 @@ negate n = -n
 -}
 abs :: Number number => number -> number
 abs n =
-  if lt n 0
-    then -n
+  if lt n (fromInteger 0)
+    then (negate n)
     else n
 
 {-| Clamps a number within a given range. With the expression
