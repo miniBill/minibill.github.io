@@ -3,12 +3,14 @@
 
 module List
   ( any
+  , concat
   , foldl
   , filterMap
   , intersperse
   , length
   , map
   , maximum
+  , repeat
   , sum
   , zip
   ) where
@@ -53,3 +55,12 @@ intersperse i (x:xs) = x : i : intersperse i xs
 
 zip :: List a -> List b -> List (a, b)
 zip = P.zip
+
+concat :: List (List a) -> List a
+concat []     = []
+concat (x:xs) = x ++ concat xs
+
+repeat :: Int -> a -> List a
+repeat n x
+  | n <= 0 = []
+  | True = x : repeat (n - 1) x

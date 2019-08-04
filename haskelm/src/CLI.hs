@@ -64,19 +64,23 @@ mainLoop view update =
    in go
 
 -- Returns Nothing to exit, Just msgs for messages
-eventToMsgs :: CLI msg -> Curses.Event -> Maybe (List msg) f
+eventToMsgs :: CLI msg -> Curses.Event -> Maybe (List msg)
 eventToMsgs root event =
   case event of
     Curses.EventMouse _ mouseState ->
       let (x, y, _) = Curses.mouseCoordinates mouseState
-       in if List.any
-               (\(_, b) ->
-                  case b of
-                    Curses.ButtonClicked -> True
-                    _                    -> False)
-               (Curses.mouseButtons mouseState)
-            then Just <| onClick x y root
-            else Just []
+          clicks =
+            List.sum <|
+            List.map
+              (\(_, b) ->
+                 case b of
+                   Curses.ButtonReleased      -> 1
+                   Curses.ButtonClicked       -> 1
+                   Curses.ButtonDoubleClicked -> 2
+                   Curses.ButtonTripleClicked -> 3
+                   _                          -> 0)
+              (Curses.mouseButtons mouseState)
+       in Just <| List.concat <| List.repeat clicks (onClick x y root)
     Curses.EventCharacter 'q' -> Nothing
     _ -> Just []
 
