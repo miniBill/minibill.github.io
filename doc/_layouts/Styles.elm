@@ -28,7 +28,7 @@ styles =
             , lineHeight <| Css.em 1.4
             ]
         , a
-            [ Css.color <| hex "348aa7"
+            [ Css.color <| hex "343e88"
             , textDecoration none
             ]
         , code codeStyle
@@ -50,13 +50,13 @@ styles =
         , class "header-logo"
             [ paddingTop <| px 6
             , textAlign center
-            , backgroundColor <| hex "f2fae8"
+            , backgroundColor <| hex "e8cf55"
             , wideScreen [ textAlign left, borderBottom3 (px 2) solid (hex "3c8765") ]
             ]
         , class "navigation"
             [ textAlign center
             , borderBottom3 (px 2) solid (hex "3c8765")
-            , backgroundColor <| hex "f2fae8"
+            , backgroundColor <| hex "e8cf55"
             , padding <| px 10
             , marginTop <| px -20
             , descendants
@@ -75,21 +75,17 @@ styles =
         , class "content" [ Css.maxWidth <| vw 100 ]
         , class "footer"
             [ textAlign center
-            , borderTop3 (px 2) solid (hex "2f4858")
-            , backgroundColor <| hex "348aa7"
+            , borderTop3 (px 2) solid (hex "2f4878")
+            , backgroundColor <| hex "343e88"
             , Css.color <| hex "ffffff"
+            , lineHeight <| px 78
+            , textAlign right
             , descendants
                 [ a [ Css.color <| hex "ffffff", textDecoration none ]
                 , svg [ paddingRight <| px 5, verticalAlign baseline ]
-                ]
-            , wideScreen
-                [ lineHeight <| px 80
-                , textAlign right
-                , descendants
-                    [ class "link"
-                        [ display inlineBlock
-                        , marginRight <| px 20
-                        ]
+                , class "link"
+                    [ display inlineBlock
+                    , marginRight <| px 20
                     ]
                 ]
             ]
@@ -104,7 +100,7 @@ styles =
                 , a
                     [ border3 (px 1) solid (hex "e0e0e0")
                     , borderRadius <| px 3
-                    , backgroundColor <| hex "f2fae8"
+                    , backgroundColor <| hex "e8cf55"
                     , paddingLeft <| px 5
                     , paddingRight <| px 5
                     ]
