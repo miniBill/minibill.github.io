@@ -147,7 +147,7 @@ displayWidget widget =
            Curses.moveCursor (r + vpad) (c)
            displayWidget child
            Curses.moveCursor r (c + width + 1))
-        (List.zip children sizes)
+        (List.map2 (,) children sizes)
     Button _ children -> do
       let (width, height) = getRowSize children
       displayBox width height

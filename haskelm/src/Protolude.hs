@@ -25,6 +25,7 @@ module Protolude
   , (>)
   , (>=)
   , always
+  , identity
   , min
   , max
   , not
@@ -71,11 +72,13 @@ instance Appendable [a] where
 
 class Number a where
   (+) :: a -> a -> a
+  (*) :: a -> a -> a
   (-) :: a -> a -> a
   fromInteger :: P.Integer -> a
 
 instance Number P.Integer where
   (+) = (P.+)
+  (*) = (P.*)
   (-) = (P.-)
   fromInteger = identity
 
