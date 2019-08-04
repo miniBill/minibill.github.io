@@ -26,7 +26,9 @@ We'll copy the implementation from Elm's own `core`.
 
 It's much more ergonomic to just type alias the types from Haskell's `Prelude`, so `Maybe`, `Int`, `Bool` and other types are just aliased from `Prelude` instead of redefining them.
 
+I actually got bored after converting `List`, `Maybe` and `Basic` so I'll just go on implementing `CLI` until we need more of the basic library.
+
 ## In the next episode ##
 We'll implement subscriptions, which will require us to go deeper down the rabbit hole of multithreading in Haskell.
 
-Continue to [Part V](/)!
+Continue to [Part V](/2019-08-04-haskelm-4-)!

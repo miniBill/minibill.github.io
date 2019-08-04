@@ -1,5 +1,3 @@
-{-# LANGUAGE PackageImports #-}
-
 module Protolude
   ( Comparable
   , Int
