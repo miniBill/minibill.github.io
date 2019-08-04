@@ -4,7 +4,7 @@
         <title>Ground Level Magic</title>
         <link>https://groundlevelmagic.tk/posts</link>
         <description>doing magic while keeping it simple</description>
-        <lastBuildDate>Sun, 04 Aug 2019 09:27:40 GMT</lastBuildDate>
+        <lastBuildDate>Sun, 04 Aug 2019 10:21:57 GMT</lastBuildDate>
         <docs>http://blogs.law.harvard.edu/tech/rss</docs>
         <generator>Elmstatic</generator>
         <language>en</language>
@@ -59,6 +59,22 @@ It is structured as a log of my explorations, rather than a tutorial or an howto
 In part II we actually managed to put something on the screen!
 
 In t...]]></description>
+        </item>
+        <item>
+            <title><![CDATA[HaskElm #4: Prelude (to the foundation)]]></title>
+            <link>https://groundlevelmagic.tk/posts/2019-08-04-haskelm-4-prelude-to-the-foundation</link>
+            <guid>https://groundlevelmagic.tk/posts/2019-08-04-haskelm-4-prelude-to-the-foundation</guid>
+            <pubDate>Sun, 04 Aug 2019 00:00:00 GMT</pubDate>
+            <description><![CDATA[
+Introduction
+HaskElm is a project in which I try and rewrite a Prelude for Haskell that feels like Elm's Prelude.
+
+This set of posts is aimed at people with some experience in Elm (having read the guide should be enough) and no experience in Haskell.
+It is structured as a log of my explorations, rather than a tutorial or an howto, so it will have warts, false ends and errors (although I'll cut some of the uninteresting ones).
+
+In part III we wrote the (rudimental) mouse handling code.
+
+In this ...]]></description>
         </item>
         <item>
             <title><![CDATA[All posts]]></title>
