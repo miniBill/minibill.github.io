@@ -2,4 +2,4 @@
 title: "Contact"
 ---
 
-Drop me a line at [me@example.com](mailto:me@example.com).
+Drop me a line at [cmt.miniBill@gmail.com](mailto:cmt.miniBill@gmail.com).

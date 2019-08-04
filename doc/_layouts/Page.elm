@@ -54,7 +54,7 @@ markdown s =
 header : List (Html Never)
 header =
     [ div [ class "header-logo" ]
-        [ img [ alt "Author's blog", src "/img/logo.png", attribute "width" "100" ]
+        [ img [ alt "miniBill's blog", src "/img/logo.png", attribute "width" "100" ]
             []
         ]
     , div [ class "navigation" ]
@@ -62,10 +62,6 @@ header =
             [ li []
                 [ a [ href "/posts" ]
                     [ text "Posts" ]
-                ]
-            , li []
-                [ a [ href "/about" ]
-                    [ text "About" ]
                 ]
             , li []
                 [ a [ href "/contact" ]
@@ -80,7 +76,7 @@ footer : Html Never
 footer =
     div [ class "footer" ]
         [ img
-            [ alt "Author's blog"
+            [ alt "miniBill's blog"
             , src "/img/logo.png"
             , attribute "style" "float: left; padding-top: 7px"
             , attribute "width" "75"
@@ -88,13 +84,13 @@ footer =
             []
         , div [ class "link" ]
             [ githubIcon
-            , a [ href "https://github.com" ]
-                [ text "Author's GitHub" ]
+            , a [ href "https://github.com/miniBill" ]
+                [ text "miniBill's GitHub" ]
             ]
         , div [ class "link" ]
             [ twitterIcon
-            , a [ href "https://twitter.com" ]
-                [ text "Author's Twitter" ]
+            , a [ href "https://twitter.com/minibill" ]
+                [ text "miniBill's Twitter" ]
             ]
         , div [ class "link" ]
             [ a [ href "https://www.npmjs.com/package/elmstatic" ]
