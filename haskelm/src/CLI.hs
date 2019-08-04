@@ -15,7 +15,6 @@ module CLI
 import           CLI.Attributes  (Attribute (..))
 import qualified List
 import qualified Maybe
-import           Prelude         hiding ((>>))
 import           "base" Prelude  (Monad (..), mapM_)
 import qualified String
 import qualified String.Internal
@@ -41,7 +40,7 @@ run :: flags -> Program flags model msg -> IO ()
 run flags (Program init view update) =
   let model = init flags
   -- runCurses initializes the ncurses library
-   in Curses.runCurses <| mainLoop view update model
+   in Curses.runCurses $ mainLoop view update model
 
 mainLoop ::
      (model -> CLI msg)
@@ -73,7 +72,7 @@ eventToMsgs root event =
     Curses.EventMouse _ mouseState ->
       let (x, y, _) = Curses.mouseCoordinates mouseState
           clicks =
-            List.sum <|
+            List.sum $
             List.map
               (\(_, b) ->
                  case b of
@@ -83,7 +82,7 @@ eventToMsgs root event =
                    Curses.ButtonTripleClicked -> 3
                    _                          -> 0)
               (Curses.mouseButtons mouseState)
-       in Just <| List.concat <| List.repeat clicks (onClick x y root)
+       in Just $ List.concat $ List.repeat clicks (onClick x y root)
     Curses.EventCharacter 'q' -> Nothing
     _ -> Just []
 
@@ -119,7 +118,7 @@ displayAndWait :: CLI msg -> Curses (Maybe Curses.Event)
 displayAndWait root = do
   w <- Curses.defaultWindow
   -- updateWindow prepares the drawing
-  Curses.updateWindow w <| do
+  Curses.updateWindow w $ do
     Curses.moveCursor 0 0 -- Move the cursor in the top left corner
     Curses.clear
     displayWidget root
@@ -127,7 +126,7 @@ displayAndWait root = do
   -- Actually do the drawing on screen
   Curses.render
   -- Wait for an event. "Nothing" means it should wait forever
-  Curses.catchCurses (Curses.getEvent w Nothing) (always <| return Nothing)
+  Curses.catchCurses (Curses.getEvent w Nothing) (always $ return Nothing)
 
 displayWidget :: CLI msg -> Update ()
 displayWidget widget =
@@ -136,8 +135,7 @@ displayWidget widget =
     Row children -> do
       let sizes = List.map getSize children
       let maxHeight =
-            sizes |> List.map Tuple.second |> List.maximum |>
-            Maybe.withDefault 0
+            sizes & List.map Tuple.second & List.maximum & Maybe.withDefault 0
       -- mapM_ is like List.map, but it's used for functions whose
       -- results are in a monad. It uses map to transform a List (Update a) into
       -- a Update (List a). The underscore is a convention meaning "ignore the result",
@@ -154,7 +152,7 @@ displayWidget widget =
     Button _ children -> do
       let (width, height) = getRowSize children
       displayBox width height
-      displayWidget <| Row children -- Just reuse the logic from Row
+      displayWidget $ Row children -- Just reuse the logic from Row
 
 -- Draws a box, and moves the cursor inside it
 displayBox :: Int -> Int -> Update ()
@@ -182,10 +180,10 @@ getRowSize [] = (0, 0)
 getRowSize children =
   let sizes = List.map getSize children
       gapsWidth = List.length children - 1
-      widgetsWidth = List.sum <| List.map (Tuple.first) sizes
+      widgetsWidth = List.sum $ List.map (Tuple.first) sizes
       width = gapsWidth + widgetsWidth
       height =
-        sizes |> List.map Tuple.second |> List.maximum |> Maybe.withDefault 0
+        sizes & List.map Tuple.second & List.maximum & Maybe.withDefault 0
    in (width, height)
 
 -- Get the size of a widget

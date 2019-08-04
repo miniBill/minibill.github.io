@@ -213,7 +213,7 @@ member x xs = any (\a -> a == x) xs
     all isEven [] == True
 -}
 all :: (a -> Bool) -> List a -> Bool
-all isOkay list = not (any (not << isOkay) list)
+all isOkay list = not (any (not . isOkay) list)
 
 {-| Determine if any elements satisfy some test.
     any isEven [2,3] == True
@@ -375,7 +375,7 @@ sort xs = sortBy identity xs
     sortBy String.length ["mouse","cat"] == ["cat","mouse"]
 -}
 sortBy :: Comparable comparable => (a -> comparable) -> List a -> List a
-sortBy f = Data.List.sortBy (\l r -> orderToOrdering <| compare (f l) (f r))
+sortBy f = Data.List.sortBy (\l r -> orderToOrdering $ compare (f l) (f r))
 
 {-| Sort values with a custom comparison function.
     sortWith flippedComparison [1,2,3,4,5] == [5,4,3,2,1]
@@ -388,7 +388,7 @@ This is also the most general sort function, allowing you
 to define any other: `sort == sortWith compare`
 -}
 sortWith :: (a -> a -> Order) -> List a -> List a
-sortWith f = Data.List.sortBy (\l r -> orderToOrdering <| f l r)
+sortWith f = Data.List.sortBy (\l r -> orderToOrdering $ f l r)
 
 orderToOrdering :: Order -> P.Ordering
 orderToOrdering value =

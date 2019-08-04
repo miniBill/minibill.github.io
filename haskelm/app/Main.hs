@@ -10,7 +10,7 @@ import           CLI.Attributes (onClick)
 import qualified String
 
 main :: IO ()
-main = CLI.run_ <| CLI.sandbox 0 view update
+main = CLI.run_ $ CLI.sandbox 0 view update
 
 data Msg
   = Increment
@@ -26,6 +26,6 @@ view :: Int -> CLI Msg
 view model =
   row
     [ button [onClick Decrement] [text "-"]
-    , text <| String.fromInt model
+    , text $ String.fromInt model
     , button [onClick Increment] [text "+"]
     ]

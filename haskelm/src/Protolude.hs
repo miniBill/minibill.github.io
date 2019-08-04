@@ -57,10 +57,9 @@ module Protolude
   , isInfinite
   , identity
   , always
-  , (<|)
-  , (|>)
-  , (<<)
-  , (>>)
+  , ($)
+  , (&)
+  , (.)
   , Never
   , never
   , fromInteger
@@ -69,7 +68,7 @@ module Protolude
   ) where
 
 import           Kernel (Appendable, Bool (..), Comparable, Equatable, IO, List,
-                         Maybe (..), Number, Order (..))
+                         Maybe (..), Number, Order (..), ($), (&), (.))
 import           Kernel (fromInteger)
 import qualified Kernel
 
@@ -100,18 +99,8 @@ things.
 # Floating Point Checks
 @docs isNaN, isInfinite
 # Function Helpers
-@docs identity, always, (<|), (|>), (<<), (>>), Never, never
+@docs identity, always, ($), (&), (.), Never, never
 -}
-infixr 0 <|
-
-(<|) :: (a -> b) -> a -> b
-(<|) = apL
-
-infixl 0 |>
-
-(|>) :: a -> (a -> b) -> b
-(|>) = apR
-
 infixr 2 ||
 
 (||) :: Bool -> Bool -> Bool
@@ -186,16 +175,6 @@ infixr 8 ^
 
 (^) :: Number a => a -> a -> a
 (^) = pow
-
-infixl 9 <<
-
-(<<) :: (b -> c) -> (a -> b) -> (a -> c)
-(<<) = composeL
-
-infixr 9 >>
-
-(>>) :: (a -> b) -> (b -> c) -> (a -> c)
-(>>) = composeR
 
 -- MATHEMATICS
 {-| An `Int` is a whole number. Valid syntax for integers includes:
@@ -703,58 +682,6 @@ isInfinite :: Float -> Bool
 isInfinite = Kernel.isInfinite
 
 -- FUNCTION HELPERS
-{-| Function composition, passing results along in the suggested direction. For
-example, the following code checks if the square root of a number is odd:
-    not << isEven << sqrt
-You can think of this operator as equivalent to the following:
-    (g << f)  ==  (\x -> g (f x))
-So our example expands out to something like this:
-    \n -> not (isEven (sqrt n))
--}
-composeL :: (b -> c) -> (a -> b) -> (a -> c)
-composeL g f x = g (f x)
-
-{-| Function composition, passing results along in the suggested direction. For
-example, the following code checks if the square root of a number is odd:
-    sqrt >> isEven >> not
--}
-composeR :: (a -> b) -> (b -> c) -> (a -> c)
-composeR f g x = g (f x)
-
-{-| Saying `x |> f` is exactly the same as `f x`.
-It is called the “pipe” operator because it lets you write “pipelined” code.
-For example, say we have a `sanitize` function for turning user input into
-integers:
-    -- BEFORE
-    sanitize :: String -> Maybe Int
-    sanitize input =
-      String.toInt (String.trim input)
-We can rewrite it like this:
-    -- AFTER
-    sanitize :: String -> Maybe Int
-    sanitize input =
-      input
-        |> String.trim
-        |> String.toInt
-Totally equivalent! I recommend trying to rewrite code that uses `x |> f`
-into code like `f x` until there are no pipes left. That can help you build
-your intuition.
-**Note:** This can be overused! I think folks find it quite neat, but when you
-have three or four steps, the code often gets clearer if you break out a
-top-level helper function. Now the transformation has a name. The arguments are
-named. It has a type annotation. It is much more self-documenting that way!
-Testing the logic gets easier too. Nice side benefit!
--}
-apR :: a -> (a -> b) -> b
-apR x f = f x
-
-{-| Saying `f <| x` is exactly the same as `f x`.
-It can help you avoid parentheses, which can be nice sometimes. Maybe you want
-to apply a function to a `case` expression? That sort of thing.
--}
-apL :: (a -> b) -> a -> b
-apL f x = f x
-
 {-| Given a value, returns exactly the same value. This is called
 [the identity function](https://en.wikipedia.org/wiki/Identity_function).
 -}

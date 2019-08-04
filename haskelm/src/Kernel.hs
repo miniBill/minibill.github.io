@@ -15,6 +15,9 @@ module Kernel
   , Order(..)
   , Maybe(..)
   , IO
+  , ($)
+  , (&)
+  , (.)
   , fdiv
   , idiv
   , isInfinite
@@ -49,8 +52,9 @@ module Kernel
   , remainderBy
   ) where
 
+import           Data.Function  ((&))
 import qualified Hack
-import           "base" Prelude (Bool (..), Char, Maybe (..))
+import           "base" Prelude (Bool (..), Char, Maybe (..), ($), (.))
 import qualified "base" Prelude as P
 
 type IO a = P.IO a
