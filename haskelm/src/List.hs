@@ -41,7 +41,6 @@ module List
 
 import qualified Data.List
 
-import           Maybe          (Maybe (..))
 import qualified "base" Prelude as P
 import           Protolude
 

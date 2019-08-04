@@ -20,10 +20,9 @@ We have also (up until) ignored the fact that Haskell is a lazy language which m
 
 We'll try enabling the `Strict` and `StrictData` extensions globally in the cabal file and see what happens.
 
-Everything seems to work correctly, let's go on!
+A quick `cabal run` after, everything seems to work correctly, so let's go on!
 
-## List ##
-W.I.P.
+We'll copy the implementation from Elm's own `core`.
 
 ## In the next episode ##
 We'll implement subscriptions, which will require us to go deeper down the rabbit hole of multithreading in Haskell.

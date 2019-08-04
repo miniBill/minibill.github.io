@@ -72,10 +72,9 @@ module Protolude
   ) where
 
 import           Kernel (Appendable, Bool (..), Comparable, Equatable, IO, List,
-                         Number, Order (..))
+                         Maybe (..), Number, Order (..))
 import           Kernel (fromInteger, ifThenElse)
 import qualified Kernel
-import           Maybe  (Maybe (..))
 
 {-| Tons of useful functions that get imported by default.
 # Math
