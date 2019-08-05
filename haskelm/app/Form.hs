@@ -34,15 +34,11 @@ update msg model =
     PasswordAgain passwordAgain' -> model {passwordAgain = passwordAgain'}
 
 view :: Model -> CLI Msg
-view model =
+view (model@(Model name' password' passwordAgain')) =
   leftAlignedColumn
-    [ viewInput CLI.TypeText "Name" (name model) Name
-    , viewInput CLI.TypePassword "Password" (password model) Password
-    , viewInput
-        CLI.TypePassword
-        "Re-enter Password"
-        (passwordAgain model)
-        PasswordAgain
+    [ viewInput CLI.TypeText "Name" name' Name
+    , viewInput CLI.TypePassword "Password" password' Password
+    , viewInput CLI.TypePassword "Password (again)" passwordAgain' PasswordAgain
     , viewValidation model
     ]
 
