@@ -29,6 +29,7 @@ module Prelude
   , always
   , compare
   , fromInteger
+  , identity
   , max
   , min
   , modBy

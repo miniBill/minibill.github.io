@@ -19,6 +19,7 @@ module CLI
   , text
   ) where
 
+import qualified Char
 import           CLI.Attributes     (Attribute (..))
 import qualified CLI.Layout         as Layout
 import           CLI.Types          (Attribute (..), CLI (..), InputType (..),
@@ -79,31 +80,42 @@ mainLoop vty view update initialModel =
       step msg (mod, cmds) =
         let (mod', cmd) = update msg mod
          in (mod', cmd : cmds)
-      initialFocus widget =
-        case widget of
-          Attributes _ child -> initialFocus child
-          Text _ -> Nothing
-          Border child -> initialFocus child
-          Input _ _ _ -> Just This
-          Row children ->
-            List.indexedMap
-              (\i child -> initialFocus child & Maybe.map (RowChild i))
-              children &
-            List.filterMap (\a -> a) &
-            List.head
-          Column children ->
-            List.indexedMap
-              (\i child -> initialFocus child & Maybe.map (ColumnChild i))
-              children &
-            List.filterMap (\a -> a) &
-            List.head
-          LeftAlignedColumn children ->
-            List.indexedMap
-              (\i child -> initialFocus child & Maybe.map (ColumnChild i))
-              children &
-            List.filterMap (\a -> a) &
-            List.head
    in go (initialFocus $view initialModel) initialModel
+
+initialFocus :: CLI msg -> Maybe Focus
+initialFocus widget =
+  let childrenFocus children =
+        List.indexedMap
+          (\i child -> initialFocus child & Maybe.map (ChildFocus i))
+          children &
+        List.filterMap identity &
+        List.head
+   in case widget of
+        Attributes _ child         -> initialFocus child
+        Text _                     -> Nothing
+        Border child               -> initialFocus child
+        Input _ _ _                -> Just This
+        Row children               -> childrenFocus children
+        Column children            -> childrenFocus children
+        LeftAlignedColumn children -> childrenFocus children
+
+finalFocus :: CLI msg -> Maybe Focus
+finalFocus widget =
+  let childrenFocus children =
+        List.indexedMap
+          (\i child -> finalFocus child & Maybe.map (ChildFocus i))
+          children &
+        List.filterMap identity &
+        List.reverse &
+        List.head
+   in case widget of
+        Attributes _ child         -> finalFocus child
+        Text _                     -> Nothing
+        Border child               -> finalFocus child
+        Input _ _ _                -> Just This
+        Row children               -> childrenFocus children
+        Column children            -> childrenFocus children
+        LeftAlignedColumn children -> childrenFocus children
 
 -- Returns Nothing to exit, Just msgs for messages
 eventToMsgs ::
@@ -111,12 +123,105 @@ eventToMsgs ::
 eventToMsgs root focus (Vty.EvMouseUp x y _) =
   Just $ onClick (P.fromIntegral x) (P.fromIntegral y) root
 eventToMsgs _ _ (Vty.EvKey Vty.KEsc []) = Nothing
-eventToMsgs root (Just focus) (Vty.EvKey key modifiers) =
-  Just (onKeyUp focus root key modifiers, Just focus)
+eventToMsgs root (Just focus) (Vty.EvKey (Vty.KChar '\t') []) =
+  Just
+    ( []
+    , case nextFocus root focus of
+        Just f  -> Just f
+        Nothing -> initialFocus root)
+eventToMsgs root (Just focus) (Vty.EvKey (Vty.KBackTab) []) =
+  Just
+    ( []
+    , case previousFocus root focus of
+        Just f  -> Just f
+        Nothing -> finalFocus root)
+eventToMsgs root (Just focus) (Vty.EvKey (Vty.KChar char) modifiers) =
+  let char' =
+        if List.any
+             (\m ->
+                case m of
+                  Vty.MShift -> True
+                  _          -> False)
+             modifiers
+          then Char.toUpper char
+          else char
+   in Just (onKeyUp char' root focus, Just focus)
 eventToMsgs _ focus _ = Just ([], focus)
 
---onKeyUp :: CLI msg -> Focus -> List msg
-onKeyUp = onKeyUp -- widget focus key modifiers =
+nextFocus :: CLI msg -> Focus -> Maybe Focus
+nextFocus =
+  let containerNextFocus children i focus =
+        case children & List.drop i of
+          [] -> Nothing
+          (x:xs) ->
+            case go x focus of
+              Just focus' -> Just $ ChildFocus i $ focus'
+              Nothing ->
+                List.indexedMap
+                  (\j e -> Maybe.map (ChildFocus $i + j + 1) $ initialFocus e)
+                  xs &
+                List.filterMap identity &
+                List.head
+      go (Border child) focus = go child focus
+      go (Attributes _ child) focus = go child focus
+      go (Input _ v onInput) This = Nothing
+      go (Row children) (ChildFocus i cfocus) =
+        containerNextFocus children i cfocus
+      go (LeftAlignedColumn children) (ChildFocus i cfocus) =
+        containerNextFocus children i cfocus
+      go (Column children) (ChildFocus i cfocus) =
+        containerNextFocus children i cfocus
+      go (Text _) _ = Nothing
+      go _ _ = Nothing
+   in go
+
+previousFocus :: CLI msg -> Focus -> Maybe Focus
+previousFocus =
+  let containerPreviousFocus children i focus =
+        case List.take (i + 1) children & List.reverse of
+          [] -> Nothing
+          (x:xs) ->
+            case go x focus of
+              Just focus' -> Just $ ChildFocus i $ focus'
+              Nothing ->
+                List.indexedMap
+                  (\j e -> Maybe.map (ChildFocus (i - j - 1)) $ finalFocus e)
+                  xs &
+                List.filterMap identity &
+                List.head
+      go (Border child) focus = go child focus
+      go (Attributes _ child) focus = go child focus
+      go (Input _ v onInput) This = Nothing
+      go (Row children) (ChildFocus i cfocus) =
+        containerPreviousFocus children i cfocus
+      go (LeftAlignedColumn children) (ChildFocus i cfocus) =
+        containerPreviousFocus children i cfocus
+      go (Column children) (ChildFocus i cfocus) =
+        containerPreviousFocus children i cfocus
+      go (Text _) _ = Nothing
+      go _ _ = Nothing
+   in go
+
+onKeyUp :: Char -> CLI msg -> Focus -> List msg
+onKeyUp char =
+  let containerKeyUp :: List (CLI msg) -> Int -> Focus -> List msg
+      containerKeyUp children i cfocus =
+        children & List.drop i & List.head &
+        (\h ->
+           case h of
+             Just x  -> go x cfocus
+             Nothing -> [])
+      go (Border child) focus = go child focus
+      go (Attributes _ child) focus = go child focus
+      go (Input _ v onInput) This = [onInput $ v ++ String.fromList [char]]
+      go (Row children) (ChildFocus i cfocus) = containerKeyUp children i cfocus
+      go (LeftAlignedColumn children) (ChildFocus i cfocus) =
+        containerKeyUp children i cfocus
+      go (Column children) (ChildFocus i cfocus) =
+        containerKeyUp children i cfocus
+      go (Text _) _ = []
+      go _ _ = []
+   in go
 
 getFocusPosition :: CLI msg -> Focus -> Maybe (Int, Int)
 getFocusPosition =
@@ -131,11 +236,11 @@ getFocusPosition =
       go (Text _) _ = Nothing
       go (Attributes _ child) focus = getFocusPosition child focus
       go (Input _ v _) This = Just (String.length v + 1, 1)
-      go (Row children) (RowChild i cfocus) =
+      go (Row children) (ChildFocus i cfocus) =
         containerFocus Layout.rowPositions children i cfocus
-      go (LeftAlignedColumn children) (ColumnChild i cfocus) =
+      go (LeftAlignedColumn children) (ChildFocus i cfocus) =
         containerFocus Layout.leftAlignedColumnPositions children i cfocus
-      go (Column children) (ColumnChild i cfocus) =
+      go (Column children) (ChildFocus i cfocus) =
         containerFocus Layout.columnPositions children i cfocus
       go _ _ = Nothing
    in go
@@ -165,12 +270,13 @@ onClick relx rely root =
       (msgs, focus) =
         case root of
           Text _ -> ([], Nothing)
-          Row children -> containerClick RowChild $ Layout.rowPositions children
+          Row children ->
+            containerClick ChildFocus $ Layout.rowPositions children
           LeftAlignedColumn children ->
-            containerClick ColumnChild $
+            containerClick ChildFocus $
             Layout.leftAlignedColumnPositions children
           Column children ->
-            containerClick ColumnChild $ Layout.columnPositions children
+            containerClick ChildFocus $ Layout.columnPositions children
           Border child ->
             let (w, h) = Layout.getSize child
              in if relx < (w + 2) && rely < (h + 2)

@@ -5,6 +5,5 @@ module CLI.Types.Internal
   ) where
 
 data Focus
-  = RowChild Int Focus
-  | ColumnChild Int Focus
+  = ChildFocus Int Focus
   | This
