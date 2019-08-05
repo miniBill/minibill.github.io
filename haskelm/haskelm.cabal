@@ -19,10 +19,10 @@ library
   hs-source-dirs:     src
   default-language:   Haskell2010
   default-extensions: Strict, StrictData, OverloadedStrings, NoImplicitPrelude
-  ghc-options:        -threaded -Wall -Werror -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints
+  ghc-options:        -Wall -Werror -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints
 
 executable haskelm
-  main-is:            Buttons.hs
+  main-is:            Form.hs
   build-depends:      haskelm
   hs-source-dirs:     app
   default-language:   Haskell2010

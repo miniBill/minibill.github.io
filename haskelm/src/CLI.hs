@@ -3,11 +3,13 @@
 
 module CLI
   ( CLI
+  , InputType(..)
   , Program
   , attributes
   , border
   , button
   , column
+  , input
   , row
   , run
   , run_
@@ -21,16 +23,30 @@ import qualified Color
 import           Graphics.Vty    (Attr, Image, Picture, Vty)
 import qualified Graphics.Vty    as Vty
 import qualified List
+import qualified Maybe
 import           "base" Prelude  (Monad (..))
 import qualified "base" Prelude  as P
+import qualified String
 import qualified String.Internal
+import qualified Tuple
+
+data InputType
+  = TypeText
+  | TypePassword
 
 data CLI msg
   = Text String
   | Row (List (CLI msg))
+  | LeftAlignedColumn (List (CLI msg))
   | Column (List (CLI msg))
   | Attributes (List (Attribute msg)) (CLI msg)
   | Border (CLI msg)
+  | Input InputType String (String -> msg)
+
+data Focus
+  = RowChild Int Focus
+  | ColumnChild Int Focus
+  | This
 
 data Program flags model msg =
   Program
@@ -57,69 +73,153 @@ mainLoop ::
   -> model
   -> IO ()
 mainLoop vty view update =
-  let go model = do
+  let go focus model = do
         let root = view model
         Vty.update vty $ display root
+        case Maybe.andThen (getFocusPosition root) focus of
+          Just (r, c) ->
+            Vty.setCursorPos
+              (Vty.outputIface vty)
+              (P.fromIntegral r)
+              (P.fromIntegral c)
+          Nothing -> return ()
         event <- Vty.nextEvent vty
-        let maybeMsgs = eventToMsgs root event
+        let maybeMsgs = eventToMsgs root focus event
         case maybeMsgs of
           Nothing -> return () -- Exit
-          Just msgs -> do
+          Just (msgs, focus') -> do
             let (model', _) = List.foldl step (model, []) msgs
-            go model'
+            go focus' model'
       step msg (mod, cmds) =
         let (mod', cmd) = update msg mod
          in (mod', cmd : cmds)
-   in go
+   in go Nothing
 
 -- Returns Nothing to exit, Just msgs for messages
-eventToMsgs :: CLI msg -> Vty.Event -> Maybe (List msg)
-eventToMsgs root event =
+eventToMsgs ::
+     CLI msg -> Maybe Focus -> Vty.Event -> Maybe (List msg, Maybe Focus)
+eventToMsgs root focus event =
   case event of
     Vty.EvMouseUp x y _ ->
       Just $ onClick (P.fromIntegral x) (P.fromIntegral y) root
     Vty.EvKey Vty.KEsc [] -> Nothing
-    _ -> Just []
+    _ -> Just ([], focus)
 
-onClick :: Int -> Int -> CLI msg -> List msg
-onClick x y root =
-  case root of
-    Text _ -> []
-    Row [] -> []
-    Row (child:children) ->
-      let (width, height) = getSize child
-       in if x < width
-            then if y < height
-                   then onClick x y child
-                   else []
-            else if x == width
-                   then []
-                   else onClick (x - width - 1) y (Row children)
-    Column [] -> []
-    Column (child:children) ->
-      let (width, height) = getSize child
-       in if y < height
-            then if x < width
-                   then onClick x y child
-                   else []
-            else if y == height
-                   then []
-                   else onClick x (y - height - 1) (Column children)
-    Border child ->
-      let (w, h) = getSize child
-       in if x < (w + 2) && y < (h + 2)
-            then onClick (x - 1) (y - 1) child
-            else []
-    Attributes as child ->
-      let (w, h) = getSize child
-       in if x < (w) && y < (h)
-            then List.filterMap
-                   (\attr ->
-                      case attr of
-                        OnClick msg -> Just msg
-                        _           -> Nothing)
-                   as
-            else []
+getFocusPosition :: CLI msg -> Focus -> Maybe (Int, Int)
+getFocusPosition widget focus =
+  let containerFocus position children i cfocus =
+        position children & List.drop i & List.head &
+        Maybe.andThen
+          (\((cx, cy), child) ->
+             getFocusPosition child cfocus &
+             Maybe.map (\(x, y) -> (x + cx, y + cy)))
+   in case widget of
+        Border child ->
+          Maybe.map (\(x, y) -> (x + 1, y + 1)) $ getFocusPosition child focus
+        Text _ -> Nothing
+        Attributes _ child -> getFocusPosition child focus
+        Input _ v _ ->
+          case focus of
+            This -> Just (String.length v, 0)
+            _    -> Nothing
+        Row children ->
+          case focus of
+            RowChild i cfocus -> containerFocus rowPositions children i cfocus
+            _ -> Nothing
+        LeftAlignedColumn children ->
+          case focus of
+            ColumnChild i cfocus ->
+              containerFocus leftAlignedColumnPositions children i cfocus
+            _ -> Nothing
+        Column children ->
+          case focus of
+            ColumnChild i cfocus ->
+              containerFocus columnPositions children i cfocus
+            _ -> Nothing
+
+onClick :: Int -> Int -> CLI msg -> (List msg, Maybe Focus)
+onClick relx rely root =
+  let containerClick position mapper children =
+        let found =
+              position children &
+              List.indexedMap (\i (pos, child) -> (i, pos, child)) &
+              List.filter
+                (\(_, (cx, cy), child) ->
+                   let (cwidth, cheight) = getSize child
+                    in cx <= relx &&
+                       relx < cx + cwidth && cy <= rely && rely < cy + cheight) &
+              List.head
+         in case found of
+              Nothing -> ([], Nothing)
+              Just (i, (cx, cy), child) ->
+                onClick (relx - cx) (rely - cy) child &
+                Tuple.mapSecond (Maybe.map $ mapper i)
+   in case root of
+        Text _ -> ([], Nothing)
+        Row children -> containerClick rowPositions RowChild children
+        LeftAlignedColumn children ->
+          containerClick leftAlignedColumnPositions RowChild children
+        Column children -> containerClick columnPositions ColumnChild children
+        Border child ->
+          let (w, h) = getSize child
+           in if relx < (w + 2) && rely < (h + 2)
+                then onClick (relx - 1) (rely - 1) child
+                else ([], Nothing)
+        Input _ v _ ->
+          let (w, h) = (String.length v + 1, 1)
+           in if relx < (w + 2) && rely < (h + 2)
+                then ([], Just This)
+                else ([], Nothing)
+        Attributes as child ->
+          let (w, h) = getSize child
+           in if relx < w && rely < h
+                then ( List.filterMap
+                         (\attr ->
+                            case attr of
+                              OnClick msg -> Just msg
+                              _           -> Nothing)
+                         as
+                     , Just This)
+                else ([], Nothing)
+
+leftAlignedColumnPositions :: List (CLI msg) -> List ((Int, Int), CLI msg)
+leftAlignedColumnPositions children =
+  children &
+  List.foldl
+    (\child (y, acc) ->
+       let (_, ch) = getSize child
+        in (y + ch + 1, ((0, y), child) : acc))
+    (0, []) &
+  Tuple.second &
+  List.reverse
+
+rowPositions :: List (CLI msg) -> List ((Int, Int), CLI msg)
+rowPositions children =
+  let maxWidth =
+        children & List.map getSize & List.map Tuple.second & List.maximum &
+        Maybe.withDefault 0
+   in children &
+      List.foldl
+        (\child (y, acc) ->
+           let (cw, ch) = getSize child
+            in (y + ch + 1, (((maxWidth - cw) // 2, y), child) : acc))
+        (0, []) &
+      Tuple.second &
+      List.reverse
+
+columnPositions :: List (CLI msg) -> List ((Int, Int), CLI msg)
+columnPositions children =
+  let maxHeight =
+        children & List.map getSize & List.map Tuple.first & List.maximum &
+        Maybe.withDefault 0
+   in children &
+      List.foldl
+        (\child (x, acc) ->
+           let (cw, ch) = getSize child
+            in (x + cw + 1, ((x, (maxHeight - ch) // 2), child) : acc))
+        (0, []) &
+      Tuple.second &
+      List.reverse
 
 imageSize :: Image -> (Int, Int)
 imageSize image =
@@ -137,11 +237,19 @@ display = Vty.picForImage . displayWidget Vty.defAttr
 displayWidget :: Attr -> CLI msg -> Image
 displayWidget attr widget =
   case widget of
-    Text s                 -> Vty.text' attr $ String.Internal.raw s -- A piece of text is simply written
-    Row children           -> displayRow attr children
-    Column children        -> displayColumn attr children
-    Border child           -> displayBorder attr child
+    Text s -> Vty.text' attr $ String.Internal.raw s -- A piece of text is simply written
+    Row children -> displayRow attr children
+    Column children -> displayColumn attr children
+    LeftAlignedColumn children -> displayLeftAlignedColumn attr children
+    Border child -> displayBorder attr child
     Attributes attrs child -> displayAttrs attr attrs child
+    Input t v _ ->
+      let displayString =
+            case t of
+              TypeText -> v
+              TypePassword ->
+                String.fromList $ List.repeat (String.length v) '*'
+       in displayBorder attr $ Text $displayString ++ " "
 
 displayRow :: Attr -> List (CLI msg) -> Image
 displayRow attr children =
@@ -170,6 +278,11 @@ displayColumn attr children =
          in Vty.horizCat [lpad, childPicture, rpad]
    in Vty.vertCat $
       List.map displayPadded $ List.intersperse (Text " ") children
+
+displayLeftAlignedColumn :: Attr -> List (CLI msg) -> Image
+displayLeftAlignedColumn attr children =
+  Vty.vertCat $
+  List.map (displayWidget attr) $ List.intersperse (Text " ") children
 
 toVtyColor :: Color -> Vty.Color
 toVtyColor c =
@@ -221,6 +334,9 @@ border = Border
 
 column :: List (CLI msg) -> CLI msg
 column = Column
+
+input :: InputType -> String -> (String -> msg) -> CLI msg
+input = Input
 
 row :: List (CLI msg) -> CLI msg
 row = Row
