@@ -25,6 +25,9 @@ instance Appendable String where
 instance Equatable String where
   equal (String l) (String r) = (P.==) l r
 
+instance P.Show String where
+  show = unpack
+
 unpack :: String -> List Char
 unpack (String s) = T.unpack s
 

@@ -19,7 +19,8 @@ library
   hs-source-dirs:     src
   default-language:   Haskell2010
   default-extensions: Strict, StrictData, OverloadedStrings, NoImplicitPrelude
-  ghc-options:        -Wall -Werror -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints
+  ghc-options:       
+   -- -Wall -Werror -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints
 
 executable haskelm
   main-is:            Form.hs

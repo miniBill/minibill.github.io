@@ -2,7 +2,8 @@ module Main
   ( main
   ) where
 
-import           CLI            (CLI, attributes, column, input, row, text)
+import           CLI            (CLI, attributes, input, leftAlignedColumn, row,
+                                 text)
 import qualified CLI
 import           CLI.Attributes (foregroundColor)
 import qualified Color
@@ -34,7 +35,7 @@ update msg model =
 
 view :: Model -> CLI Msg
 view model =
-  column
+  leftAlignedColumn
     [ viewInput CLI.TypeText "Name" (name model) Name
     , viewInput CLI.TypePassword "Password" (password model) Password
     , viewInput
@@ -46,7 +47,7 @@ view model =
     ]
 
 viewInput :: CLI.InputType -> String -> String -> (String -> msg) -> CLI msg
-viewInput t p v toMsg = row [text $ p ++ ": ", input t v toMsg]
+viewInput t p v toMsg = row [text $ p ++ ":", input t v toMsg]
 
 viewValidation :: Model -> CLI msg
 viewValidation model =

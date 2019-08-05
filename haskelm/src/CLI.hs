@@ -1,5 +1,6 @@
-{-# LANGUAGE ImplicitPrelude #-}
-{-# LANGUAGE PackageImports  #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE ImplicitPrelude   #-}
+{-# LANGUAGE PackageImports    #-}
 
 module CLI
   ( CLI
@@ -10,6 +11,7 @@ module CLI
   , button
   , column
   , input
+  , leftAlignedColumn
   , row
   , run
   , run_
@@ -20,6 +22,7 @@ module CLI
 import           CLI.Attributes  (Attribute (..))
 import           Color           (Color)
 import qualified Color
+import qualified Debug.Trace     as Debug
 import           Graphics.Vty    (Attr, Image, Picture, Vty)
 import qualified Graphics.Vty    as Vty
 import qualified List
@@ -30,9 +33,16 @@ import qualified String
 import qualified String.Internal
 import qualified Tuple
 
+trace :: String -> a -> a
+trace msg x =
+  if False
+    then Debug.trace (String.Internal.unpack msg) x
+    else x
+
 data InputType
   = TypeText
   | TypePassword
+  deriving (P.Show)
 
 data CLI msg
   = Text String
@@ -42,11 +52,19 @@ data CLI msg
   | Attributes (List (Attribute msg)) (CLI msg)
   | Border (CLI msg)
   | Input InputType String (String -> msg)
+  deriving (P.Show)
+
+instance P.Show (String -> msg) where
+  show _ = ['[', '-', '>', ']']
+
+instance P.Show (Attribute msg) where
+  show _ = ['[', '?', ']']
 
 data Focus
   = RowChild Int Focus
   | ColumnChild Int Focus
   | This
+  deriving (P.Show)
 
 data Program flags model msg =
   Program
@@ -72,17 +90,18 @@ mainLoop ::
   -> (msg -> model -> (model, IO (List msg)))
   -> model
   -> IO ()
-mainLoop vty view update =
+mainLoop vty view update initialModel =
   let go focus model = do
         let root = view model
         Vty.update vty $ display root
         case Maybe.andThen (getFocusPosition root) focus of
-          Just (r, c) ->
+          Just (r, c) -> do
+            Vty.showCursor $ Vty.outputIface vty
             Vty.setCursorPos
               (Vty.outputIface vty)
               (P.fromIntegral r)
               (P.fromIntegral c)
-          Nothing -> return ()
+          Nothing -> Vty.hideCursor $ Vty.outputIface vty
         event <- Vty.nextEvent vty
         let maybeMsgs = eventToMsgs root focus event
         case maybeMsgs of
@@ -93,7 +112,31 @@ mainLoop vty view update =
       step msg (mod, cmds) =
         let (mod', cmd) = update msg mod
          in (mod', cmd : cmds)
-   in go Nothing
+      initialFocus widget =
+        case widget of
+          Attributes _ child -> initialFocus child
+          Text _ -> Nothing
+          Border child -> initialFocus child
+          Input _ _ _ -> Just This
+          Row children ->
+            List.indexedMap
+              (\i child -> initialFocus child & Maybe.map (RowChild i))
+              children &
+            List.filterMap (\a -> a) &
+            List.head
+          Column children ->
+            List.indexedMap
+              (\i child -> initialFocus child & Maybe.map (ColumnChild i))
+              children &
+            List.filterMap (\a -> a) &
+            List.head
+          LeftAlignedColumn children ->
+            List.indexedMap
+              (\i child -> initialFocus child & Maybe.map (ColumnChild i))
+              children &
+            List.filterMap (\a -> a) &
+            List.head
+   in go (initialFocus $view initialModel) initialModel
 
 -- Returns Nothing to exit, Just msgs for messages
 eventToMsgs ::
@@ -120,7 +163,7 @@ getFocusPosition widget focus =
         Attributes _ child -> getFocusPosition child focus
         Input _ v _ ->
           case focus of
-            This -> Just (String.length v, 0)
+            This -> Just (String.length v + 1, 1)
             _    -> Nothing
         Row children ->
           case focus of
@@ -139,48 +182,68 @@ getFocusPosition widget focus =
 
 onClick :: Int -> Int -> CLI msg -> (List msg, Maybe Focus)
 onClick relx rely root =
-  let containerClick position mapper children =
+  let containerClick ::
+           (Int -> Focus -> Focus)
+        -> List ((Int, Int), CLI msg)
+        -> (List msg, Maybe Focus)
+      containerClick mapper positions =
         let found =
-              position children &
-              List.indexedMap (\i (pos, child) -> (i, pos, child)) &
+              positions & List.indexedMap (\i (pos, child) -> (i, pos, child)) &
               List.filter
                 (\(_, (cx, cy), child) ->
                    let (cwidth, cheight) = getSize child
                     in cx <= relx &&
                        relx < cx + cwidth && cy <= rely && rely < cy + cheight) &
               List.head
-         in case found of
-              Nothing -> ([], Nothing)
-              Just (i, (cx, cy), child) ->
-                onClick (relx - cx) (rely - cy) child &
-                Tuple.mapSecond (Maybe.map $ mapper i)
-   in case root of
-        Text _ -> ([], Nothing)
-        Row children -> containerClick rowPositions RowChild children
-        LeftAlignedColumn children ->
-          containerClick leftAlignedColumnPositions RowChild children
-        Column children -> containerClick columnPositions ColumnChild children
-        Border child ->
-          let (w, h) = getSize child
-           in if relx < (w + 2) && rely < (h + 2)
-                then onClick (relx - 1) (rely - 1) child
-                else ([], Nothing)
-        Input _ v _ ->
-          let (w, h) = (String.length v + 1, 1)
-           in if relx < (w + 2) && rely < (h + 2)
-                then ([], Just This)
-                else ([], Nothing)
-        Attributes as child ->
-          let (w, h) = getSize child
-           in if relx < w && rely < h
-                then ( List.filterMap
-                         (\attr ->
-                            case attr of
-                              OnClick msg -> Just msg
-                              _           -> Nothing)
-                         as
-                     , Just This)
-                else ([], Nothing)
+            (msgs, focus) =
+              case found of
+                Nothing -> ([], Nothing)
+                Just (i, (cx, cy), child) ->
+                  onClick (relx - cx) (rely - cy) child &
+                  Tuple.mapSecond (Maybe.map $ mapper i)
+         in trace
+              ("containerClick [->] " ++
+               String.fromList (P.show positions) ++
+               " -> " ++ String.fromList (P.show focus))
+              (msgs, focus)
+      (msgs, focus) =
+        case root of
+          Text _ -> ([], Nothing)
+          Row children -> containerClick RowChild $ rowPositions children
+          LeftAlignedColumn children ->
+            containerClick ColumnChild $ leftAlignedColumnPositions children
+          Column children ->
+            containerClick ColumnChild $ columnPositions children
+          Border child ->
+            let (w, h) = getSize child
+             in if relx < (w + 2) && rely < (h + 2)
+                  then onClick (relx - 1) (rely - 1) child
+                  else ([], Nothing)
+          Input _ v _ ->
+            let (w, h) = (max 10 $ String.length v + 1, 1)
+             in if relx < (w + 2) && rely < (h + 2)
+                  then ([], Just This)
+                  else ([], Nothing)
+          Attributes as child ->
+            let (w, h) = getSize child
+             in if relx < w && rely < h
+                  then ( List.filterMap
+                           (\attr ->
+                              case attr of
+                                OnClick msg -> Just msg
+                                _           -> Nothing)
+                           as
+                       , Just This)
+                  else ([], Nothing)
+   in trace
+        ("onClick " ++
+         String.fromInt relx ++
+         " " ++
+         String.fromInt rely ++
+         " " ++
+         String.fromList (P.show root) ++
+         " -> " ++ String.fromList (P.show focus))
+        (msgs, focus)
 
 leftAlignedColumnPositions :: List (CLI msg) -> List ((Int, Int), CLI msg)
 leftAlignedColumnPositions children =
@@ -193,10 +256,10 @@ leftAlignedColumnPositions children =
   Tuple.second &
   List.reverse
 
-rowPositions :: List (CLI msg) -> List ((Int, Int), CLI msg)
-rowPositions children =
+columnPositions :: List (CLI msg) -> List ((Int, Int), CLI msg)
+columnPositions children =
   let maxWidth =
-        children & List.map getSize & List.map Tuple.second & List.maximum &
+        children & List.map getSize & List.map Tuple.first & List.maximum &
         Maybe.withDefault 0
    in children &
       List.foldl
@@ -207,10 +270,10 @@ rowPositions children =
       Tuple.second &
       List.reverse
 
-columnPositions :: List (CLI msg) -> List ((Int, Int), CLI msg)
-columnPositions children =
+rowPositions :: List (CLI msg) -> List ((Int, Int), CLI msg)
+rowPositions children =
   let maxHeight =
-        children & List.map getSize & List.map Tuple.first & List.maximum &
+        children & List.map getSize & List.map Tuple.second & List.maximum &
         Maybe.withDefault 0
    in children &
       List.foldl
@@ -249,7 +312,7 @@ displayWidget attr widget =
               TypeText -> v
               TypePassword ->
                 String.fromList $ List.repeat (String.length v) '*'
-       in displayBorder attr $ Text $displayString ++ " "
+       in displayBorder attr $ Text $ String.padRight 10 ' ' displayString ++ " "
 
 displayRow :: Attr -> List (CLI msg) -> Image
 displayRow attr children =
@@ -331,6 +394,9 @@ button attrs = Attributes attrs . Border
 
 border :: CLI msg -> CLI msg
 border = Border
+
+leftAlignedColumn :: List (CLI msg) -> CLI msg
+leftAlignedColumn = LeftAlignedColumn
 
 column :: List (CLI msg) -> CLI msg
 column = Column

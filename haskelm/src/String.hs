@@ -7,6 +7,7 @@ module String
   , fromList
   , intersperse
   , length
+  , padRight
   ) where
 
 import qualified Data.Text       as T
@@ -29,3 +30,6 @@ concat xs = String (T.concat (List.map runString xs))
 
 fromList :: List Char -> String
 fromList = String . T.pack
+
+padRight :: Int -> Char -> String -> String
+padRight w c s = concat [s, fromList $ List.repeat (sub w $ length s) c]
