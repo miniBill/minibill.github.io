@@ -6,4 +6,4 @@ module CLI.Types.Internal
 
 data Focus
   = ChildFocus Int Focus
-  | This
+  | This Int

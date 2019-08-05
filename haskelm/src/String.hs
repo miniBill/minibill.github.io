@@ -3,9 +3,11 @@
 module String
   ( String
   , concat
+  , dropLeft
   , fromInt
   , fromList
   , intersperse
+  , left
   , length
   , padRight
   ) where
@@ -18,6 +20,9 @@ import           String.Internal
 
 fromInt :: Int -> String
 fromInt i = fromList $ P.show i
+
+lift :: (T.Text -> T.Text) -> String -> String
+lift f (String s) = String (f s)
 
 intersperse :: String -> List String -> String
 intersperse (String i) xs = String (T.intercalate i (List.map runString xs))
@@ -33,3 +38,9 @@ fromList = String . T.pack
 
 padRight :: Int -> Char -> String -> String
 padRight w c s = concat [s, fromList $ List.repeat (sub w $ length s) c]
+
+left :: Int -> String -> String
+left i = lift (T.take (P.fromIntegral i))
+
+dropLeft :: Int -> String -> String
+dropLeft i = lift (T.drop (P.fromIntegral i))

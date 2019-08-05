@@ -12,7 +12,7 @@ module CLI.Layout
 import           CLI.Types       (Attribute (..), CLI (..), InputType (..))
 import           Color           (Color)
 import qualified Color
-import           Graphics.Vty    (Attr, Image, Picture, Vty)
+import           Graphics.Vty    (Attr, Image, Picture)
 import qualified Graphics.Vty    as Vty
 import qualified List
 import qualified Maybe

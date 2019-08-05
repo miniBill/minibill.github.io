@@ -15,8 +15,7 @@ module CLI.Types
   , text
   ) where
 
-import           CLI.Types.Internal (Focus (..))
-import           Color              (Color)
+import           Color (Color)
 
 data Attribute msg
   = OnClick msg
