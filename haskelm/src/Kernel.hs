@@ -81,6 +81,12 @@ instance Equatable Float where
 instance Equatable Int where
   equal l r = (P.==) l r
 
+instance (Equatable a, Equatable b) => Equatable (a, b) where
+  equal (a, b) (c, d) = and (equal a c) (equal b d)
+
+instance (Equatable a, Equatable b, Equatable c) => Equatable (a, b, c) where
+  equal (a, b, c) (d, f, g) = and (equal a d) $ and (equal b f) (equal c g)
+
 class Equatable a =>
       Comparable a
   where

@@ -6,6 +6,8 @@ module Color
   , rgb
   , rgba
   , toHex
+  , toRgba
+  , transparent
   , white
   ) where
 
@@ -22,9 +24,17 @@ rgb r g b = Color r g b 1
 rgba :: Float -> Float -> Float -> Float -> Color
 rgba = Color
 
+toRgba :: Color -> (Float, Float, Float, Float)
+toRgba (Color r g b a) = (r, g, b, a)
+
 toHex :: Color -> String
-toHex (Color r g b _) =
-  [r, g, b] & List.map ((*) 255) & List.map round & List.map int255ToHex &
+toHex (Color r g b a) =
+  (if a == 1
+     then [r, g, b]
+     else [a, r, g, b]) &
+  List.map ((*) 255) &
+  List.map round &
+  List.map int255ToHex &
   String.concat &
   (++) "#"
 
@@ -79,3 +89,6 @@ green = rgb 0 0.7 0
 
 white :: Color
 white = rgb 1 1 1
+
+transparent :: Color
+transparent = rgba 0 0 0 0

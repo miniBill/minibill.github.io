@@ -16,6 +16,8 @@ module CLI
   ) where
 
 import           CLI.Attributes (Attribute (..))
+import           Color          (Color)
+import qualified Color
 import           Curses         (Curses, Update)
 import qualified Curses
 import qualified List
@@ -139,8 +141,9 @@ onClick x y root =
 displayAndWait :: CLI msg -> Curses (Maybe Curses.Event)
 displayAndWait root = do
   w <- Curses.defaultWindow
+  defineColors Color.white Color.transparent root
   -- updateWindow prepares the drawing
-  Curses.updateWindow w $ do
+  Curses.updateWindow w Color.white Color.transparent $ do
     Curses.moveCursor 0 0 -- Move the cursor in the top left corner
     Curses.clear
     displayWidget root
@@ -149,6 +152,18 @@ displayAndWait root = do
   Curses.render
   -- Wait for an event. "Nothing" means it should wait forever
   Curses.catchCurses (Curses.getEvent w Nothing) (always $ return Nothing)
+
+defineColors :: Color -> Color -> CLI msg -> Curses ()
+defineColors fore back widget =
+  case widget of
+    Text _ -> Curses.defineColors (fore, back)
+    Row children -> mapM_ (defineColors fore back) children
+    Column children -> mapM_ (defineColors fore back) children
+    Border child -> defineColors fore back child
+    Attributes attrs child -> do
+      let (fore', back') = getColorsFromAttributes fore back attrs
+      Curses.defineColors (fore', back')
+      defineColors fore' back' child
 
 displayWidget :: CLI msg -> Update ()
 displayWidget widget =
@@ -159,18 +174,23 @@ displayWidget widget =
     Border child           -> displayBorder child
     Attributes attrs child -> displayAttrs attrs child
 
-displayAttrs :: List (Attribute msg) -> CLI msg -> Update ()
-displayAttrs attrs child =
+getColorsFromAttributes ::
+     Color -> Color -> List (Attribute msg) -> (Color, Color)
+getColorsFromAttributes fore back attrs =
   let apply attr (f, b) =
         case attr of
           OnClick _     -> (f, b)
           Foreground f' -> (f', b)
           Background b' -> (f, b')
-   in do (fore, back) <- Curses.getColors
-         let (fore', back') = List.foldl apply (fore, back) attrs
-         Curses.setColors (fore', back')
-         displayWidget child
-         Curses.setColors (fore, back)
+   in List.foldl apply (fore, back) attrs
+
+displayAttrs :: List (Attribute msg) -> CLI msg -> Update ()
+displayAttrs attrs child = do
+  (fore, back) <- Curses.getColors
+  let (fore', back') = getColorsFromAttributes fore back attrs
+  Curses.setColors (fore', back')
+  displayWidget child
+  Curses.setColors (fore, back)
 
 displayRow :: List (CLI msg) -> Update ()
 displayRow children = do
