@@ -4,8 +4,7 @@ module Main
 
 import           CLI            (CLI, button, row, text)
 import qualified CLI
-import           CLI.Attributes (backgroundColor, foregroundColor, onClick)
-import qualified Color
+import           CLI.Attributes (onClick)
 
 -- unfortunately Haskell does not support qualified module exports
 import qualified String
@@ -26,17 +25,7 @@ update msg model =
 view :: Int -> CLI Msg
 view model =
   row
-    [ button
-        [ onClick Decrement
-        , foregroundColor Color.white
-        , backgroundColor Color.red
-        ] $
-      text "-"
+    [ button [onClick Decrement] $ text "-"
     , text $ String.fromInt model
-    , button
-        [ onClick Increment
-        , foregroundColor Color.white
-        , backgroundColor Color.green
-        ] $
-      text "+"
+    , button [onClick Increment] $ text "+"
     ]
