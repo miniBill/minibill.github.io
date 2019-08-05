@@ -5,7 +5,7 @@ module String.Internal
 
 import qualified Data.String
 import qualified Data.Text   as T
-import           Kernel      (Char)
+import           Kernel      (Appendable (..), Char, List)
 
 newtype String =
   String
@@ -15,5 +15,8 @@ newtype String =
 instance Data.String.IsString String where
   fromString s = String (T.pack s)
 
-unpack :: String -> [Char]
+instance Appendable String where
+  append (String l) (String r) = String (T.append l r)
+
+unpack :: String -> List Char
 unpack (String s) = T.unpack s

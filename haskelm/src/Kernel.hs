@@ -50,6 +50,7 @@ module Kernel
   , truncate
   , modBy
   , remainderBy
+  , orderToOrdering
   ) where
 
 import           Data.Function  ((&))
@@ -254,3 +255,10 @@ modBy by val = P.mod val by
 
 remainderBy :: Int -> Int -> Int
 remainderBy by val = P.rem val by
+
+orderToOrdering :: Order -> P.Ordering
+orderToOrdering value =
+  case value of
+    LT -> P.LT
+    EQ -> P.EQ
+    GT -> P.GT

@@ -1,74 +1,77 @@
 module Protolude
-  ( Comparable
-  , Int
-  , Float
-  , List
-  , Number
+  ( Bool(..)
+  , Comparable
+  , Char
   , Equatable
-  , (+)
+  , Float
+  , Int
+  , IO
+  , List
+  , Maybe(..)
+  , Never
+  , Number
+  , Order(..)
   , (-)
+  , (.)
   , (*)
   , (/)
   , (//)
-  , (^)
-  , toFloat
-  , round
-  , floor
-  , ceiling
-  , truncate
-  , (==)
   , (/=)
-  , (<)
-  , (>)
-  , (<=)
-  , (>=)
-  , max
-  , min
-  , compare
-  , Order(..)
-  , Bool(..)
-  , not
+  , (&)
   , (&&)
-  , (||)
-  , xor
+  , (^)
+  , (+)
   , (++)
-  , modBy
-  , remainderBy
-  , negate
+  , (<)
+  , (<=)
+  , (==)
+  , (>)
+  , (>=)
+  , (||)
+  , ($)
   , abs
-  , clamp
-  , sqrt
-  , logBase
-  , e
-  , pi
-  , cos
-  , sin
-  , tan
   , acos
+  , always
   , asin
   , atan
   , atan2
+  , ceiling
+  , clamp
+  , compare
+  , cos
   , degrees
-  , radians
-  , turns
-  , toPolar
-  , fromPolar
-  , isNaN
-  , isInfinite
-  , identity
-  , always
-  , ($)
-  , (&)
-  , (.)
-  , Never
-  , never
+  , e
+  , floor
   , fromInteger
-  , IO
-  , Maybe(..)
+  , fromPolar
+  , identity
+  , isInfinite
+  , isNaN
+  , logBase
+  , max
+  , min
+  , modBy
+  , negate
+  , never
+  , not
+  , orderToOrdering
+  , pi
+  , radians
+  , remainderBy
+  , round
+  , sin
+  , sqrt
+  , tan
+  , toFloat
+  , toPolar
+  , truncate
+  , turns
+  , xor
   ) where
 
-import           Kernel (Appendable, Bool (..), Comparable, Equatable, IO, List,
-                         Maybe (..), Number, Order (..), ($), (&), (.))
+import           Kernel (Appendable, Bool (..), Char, Comparable, Equatable, IO,
+                         List, Maybe (..), Number, Order (..), orderToOrdering,
+                         ($), (&), (.))
 import           Kernel (fromInteger)
 import qualified Kernel
 

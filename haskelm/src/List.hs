@@ -1,47 +1,45 @@
 {-# LANGUAGE PackageImports #-}
 
 module List
-  ( singleton
-  , repeat
-  , range
-  , map
-  , indexedMap
-  , foldl
-  , foldr
-  , filter
-  , filterMap
-  , length
-  , reverse
-  , member
-  , all
+  ( all
   , any
-  , maximum
-  , minimum
-  , sum
-  , product
   , append
   , concat
   , concatMap
+  , drop
+  , filter
+  , filterMap
+  , foldl
+  , foldr
+  , head
+  , indexedMap
   , intersperse
+  , isEmpty
+  , length
+  , map
   , map2
   , map3
   , map4
   , map5
+  , maximum
+  , member
+  , minimum
+  , partition
+  , product
+  , range
+  , repeat
+  , reverse
+  , singleton
   , sort
   , sortBy
   , sortWith
-  , isEmpty
-  , head
+  , sum
   , tail
   , take
-  , drop
-  , partition
   , unzip
   ) where
 
 import qualified Data.List
-
-import qualified "base" Prelude as P
 import           Protolude
 
 {-| You can create a `List` in HaskElm with the `[1,2,3]` syntax, so lists are
@@ -389,13 +387,6 @@ to define any other: `sort == sortWith compare`
 -}
 sortWith :: (a -> a -> Order) -> List a -> List a
 sortWith f = Data.List.sortBy (\l r -> orderToOrdering $ f l r)
-
-orderToOrdering :: Order -> P.Ordering
-orderToOrdering value =
-  case value of
-    LT -> P.LT
-    EQ -> P.EQ
-    GT -> P.GT
 
 -- DECONSTRUCT
 {-| Determine if a list is empty.

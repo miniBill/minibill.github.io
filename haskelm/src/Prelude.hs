@@ -2,32 +2,38 @@
 
 module Prelude
   ( Bool(..)
+  , Char
+  , Float
   , Int
   , IO
   , List
   , Maybe(..)
   , Order(..)
   , String
-  , ($)
-  , (&)
-  , (.)
-  , (==)
-  , (++)
-  , (+)
   , (-)
+  , (.)
+  , (*)
   , (//)
-  , (||)
+  , (/=)
+  , (&)
   , (&&)
+  , (+)
+  , (++)
   , (<)
   , (<=)
+  , (==)
   , (>)
   , (>=)
+  , (||)
+  , ($)
   , always
   , compare
-  , min
-  , max
-  , not
   , fromInteger
+  , max
+  , min
+  , modBy
+  , not
+  , round
   ) where
 
 import           Protolude
