@@ -5,12 +5,8 @@ module CLI.Attributes
   , onClick
   ) where
 
-import           Color (Color)
-
-data Attribute msg
-  = OnClick msg
-  | Foreground Color
-  | Background Color
+import           CLI.Types (Attribute (..))
+import           Color     (Color)
 
 onClick :: msg -> Attribute msg
 onClick = OnClick

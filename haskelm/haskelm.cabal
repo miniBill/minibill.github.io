@@ -13,8 +13,8 @@ extra-source-files:  ChangeLog.md
 cabal-version:       >=1.10
 
 library
-  exposed-modules:    Prelude, CLI, CLI.Attributes, Color, Dict, List, Maybe, Result, String, Tuple
-  other-modules:      Protolude, Kernel, Hack, String.Internal
+  exposed-modules:    Prelude, CLI, CLI.Attributes, CLI.Layout, CLI.Types, Color, Dict, List, Maybe, Result, String, Tuple
+  other-modules:      Protolude, Kernel, Hack, CLI.Types.Internal, String.Internal
   build-depends:      base >=4.11 && <4.12, containers >=0.5 && <0.7, vty >=5.0 && <6.0, text >=1.2 && <1.3
   hs-source-dirs:     src
   default-language:   Haskell2010
