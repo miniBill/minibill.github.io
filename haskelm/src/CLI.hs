@@ -129,12 +129,16 @@ eventToMsgs root (Just focus) (Vty.EvKey (Vty.KChar '\t') []) =
     , case nextFocus root focus of
         Just f  -> Just f
         Nothing -> initialFocus root)
+eventToMsgs root Nothing (Vty.EvKey (Vty.KChar '\t') []) =
+  Just ([], initialFocus root)
 eventToMsgs root (Just focus) (Vty.EvKey (Vty.KBackTab) []) =
   Just
     ( []
     , case previousFocus root focus of
         Just f  -> Just f
         Nothing -> finalFocus root)
+eventToMsgs root Nothing (Vty.EvKey (Vty.KBackTab) []) =
+  Just ([], finalFocus root)
 eventToMsgs root (Just focus) (Vty.EvKey (Vty.KChar char) modifiers) =
   let char' =
         if List.any
