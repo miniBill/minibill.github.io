@@ -108,45 +108,37 @@ mainLoop vty view update initialModel =
 -- Returns Nothing to exit, Just msgs for messages
 eventToMsgs ::
      CLI msg -> Maybe Focus -> Vty.Event -> Maybe (List msg, Maybe Focus)
-eventToMsgs root focus event =
-  case event of
-    Vty.EvMouseUp x y _ ->
-      Just $ onClick (P.fromIntegral x) (P.fromIntegral y) root
-    Vty.EvKey Vty.KEsc [] -> Nothing
-    _ -> Just ([], focus)
+eventToMsgs root focus (Vty.EvMouseUp x y _) =
+  Just $ onClick (P.fromIntegral x) (P.fromIntegral y) root
+eventToMsgs _ _ (Vty.EvKey Vty.KEsc []) = Nothing
+eventToMsgs root (Just focus) (Vty.EvKey key modifiers) =
+  Just (onKeyUp focus root key modifiers, Just focus)
+eventToMsgs _ focus _ = Just ([], focus)
+
+--onKeyUp :: CLI msg -> Focus -> List msg
+onKeyUp = onKeyUp -- widget focus key modifiers =
 
 getFocusPosition :: CLI msg -> Focus -> Maybe (Int, Int)
-getFocusPosition widget focus =
+getFocusPosition =
   let containerFocus position children i cfocus =
         position children & List.drop i & List.head &
         Maybe.andThen
           (\((cx, cy), child) ->
              getFocusPosition child cfocus &
              Maybe.map (\(x, y) -> (x + cx, y + cy)))
-   in case widget of
-        Border child ->
-          Maybe.map (\(x, y) -> (x + 1, y + 1)) $ getFocusPosition child focus
-        Text _ -> Nothing
-        Attributes _ child -> getFocusPosition child focus
-        Input _ v _ ->
-          case focus of
-            This -> Just (String.length v + 1, 1)
-            _    -> Nothing
-        Row children ->
-          case focus of
-            RowChild i cfocus ->
-              containerFocus Layout.rowPositions children i cfocus
-            _ -> Nothing
-        LeftAlignedColumn children ->
-          case focus of
-            ColumnChild i cfocus ->
-              containerFocus Layout.leftAlignedColumnPositions children i cfocus
-            _ -> Nothing
-        Column children ->
-          case focus of
-            ColumnChild i cfocus ->
-              containerFocus Layout.columnPositions children i cfocus
-            _ -> Nothing
+      go (Border child) focus =
+        Maybe.map (\(x, y) -> (x + 1, y + 1)) $ getFocusPosition child focus
+      go (Text _) _ = Nothing
+      go (Attributes _ child) focus = getFocusPosition child focus
+      go (Input _ v _) This = Just (String.length v + 1, 1)
+      go (Row children) (RowChild i cfocus) =
+        containerFocus Layout.rowPositions children i cfocus
+      go (LeftAlignedColumn children) (ColumnChild i cfocus) =
+        containerFocus Layout.leftAlignedColumnPositions children i cfocus
+      go (Column children) (ColumnChild i cfocus) =
+        containerFocus Layout.columnPositions children i cfocus
+      go _ _ = Nothing
+   in go
 
 onClick :: Int -> Int -> CLI msg -> (List msg, Maybe Focus)
 onClick relx rely root =
