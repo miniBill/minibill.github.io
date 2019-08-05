@@ -118,34 +118,7 @@ onKeyUp key modifiers =
         Tuple.mapSecond (Maybe.map $ ChildFocus i)
       go (Border child) focus = go child focus
       go (Attributes _ child) focus = go child focus
-      go (Input _ v onInput) (This i) =
-        let inner Vty.KBS
-              | i > 0 =
-                ( [onInput $ String.left (i - 1) v ++ String.dropLeft i v]
-                , Just $ This (i - 1))
-            inner (Vty.KChar char) =
-              let char' =
-                    if List.any
-                         (\m ->
-                            case m of
-                              Vty.MShift -> True
-                              _          -> False)
-                         modifiers
-                      then Char.toUpper char
-                      else char
-               in ( [ onInput $
-                      String.left i v ++
-                      String.fromList [char'] ++ String.dropLeft i v
-                    ]
-                  , Just $ This (i + 1))
-            inner Vty.KLeft
-              | i > 0 = ([], Just $ This $ i - 1)
-            inner Vty.KRight
-              | i < String.length v = ([], Just $ This $ i + 1)
-            inner Vty.KHome = ([], Just $ This 0)
-            inner Vty.KEnd = ([], Just $ This $ String.length v)
-            inner _ = ([], Just $ This i)
-         in inner key
+      go (Input _ v onInput) (This i) = onInputKeyUp v onInput i key modifiers
       go (Row children) (ChildFocus i cfocus) = containerKeyUp children i cfocus
       go (LeftAlignedColumn children) (ChildFocus i cfocus) =
         containerKeyUp children i cfocus
@@ -154,6 +127,42 @@ onKeyUp key modifiers =
       go (Text _) _ = ([], Nothing)
       go _ _ = ([], Nothing)
    in go
+
+onInputKeyUp ::
+     String
+  -> (String -> msg)
+  -> Int
+  -> Vty.Key
+  -> List Vty.Modifier
+  -> (List msg, Maybe Focus)
+onInputKeyUp v onInput i key modifiers =
+  let inner Vty.KBS
+        | i > 0 =
+          ( [onInput $ String.left (i - 1) v ++ String.dropLeft i v]
+          , Just $ This (i - 1))
+      inner (Vty.KChar char) =
+        let char' =
+              if List.any
+                   (\m ->
+                      case m of
+                        Vty.MShift -> True
+                        _          -> False)
+                   modifiers
+                then Char.toUpper char
+                else char
+         in ( [ onInput $
+                String.left i v ++
+                String.fromList [char'] ++ String.dropLeft i v
+              ]
+            , Just $ This (i + 1))
+      inner Vty.KLeft
+        | i > 0 = ([], Just $ This $ i - 1)
+      inner Vty.KRight
+        | i < String.length v = ([], Just $ This $ i + 1)
+      inner Vty.KHome = ([], Just $ This 0)
+      inner Vty.KEnd = ([], Just $ This $ String.length v)
+      inner _ = ([], Just $ This i)
+   in inner key
 
 onClick :: Int -> Int -> CLI msg -> (List msg, Maybe Focus)
 onClick relx rely root =
