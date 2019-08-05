@@ -1,5 +1,6 @@
 module String.Internal
   ( String(..)
+  , raw
   , unpack
   ) where
 
@@ -20,3 +21,6 @@ instance Appendable String where
 
 unpack :: String -> List Char
 unpack (String s) = T.unpack s
+
+raw :: String -> T.Text
+raw (String s) = s
