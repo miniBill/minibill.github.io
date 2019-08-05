@@ -188,23 +188,17 @@ displayAttrs attr attrs child =
 displayBorder :: Attr -> CLI msg -> Image
 displayBorder attr child =
   let (width, height) = getSize child
-   in Vty.vertCat
-        [ Vty.horizCat
-            [ Vty.char attr '┌'
-            , Vty.charFill attr '─' width 1
-            , Vty.char attr '┐'
-            ]
-        , Vty.horizCat
-            [ Vty.charFill attr '│' 1 height
-            , displayWidget attr child
-            , Vty.charFill attr '│' 1 height
-            ]
-        , Vty.horizCat
-            [ Vty.char attr '└'
-            , Vty.charFill attr '─' width 1
-            , Vty.char attr '┘'
-            ]
+      char = Vty.char attr
+      hline c w = Vty.charFill attr c w 1
+      vline c h = Vty.charFill attr c 1 h
+   in grid
+        [ [char '┌', hline '─' width, char '┐']
+        , [vline '│' height, displayWidget attr child, vline '│' height]
+        , [char '└', hline '─' width, char '┘']
         ]
+
+grid :: List (List Image) -> Image
+grid = Vty.vertCat . List.map Vty.horizCat
 
 sandbox ::
      model
