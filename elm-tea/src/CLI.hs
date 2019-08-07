@@ -1,6 +1,5 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE ImplicitPrelude   #-}
-{-# LANGUAGE PackageImports    #-}
 
 module CLI
   ( CLI
@@ -28,12 +27,12 @@ import           CLI.Types          (AlignmentType (..), CLI (..),
                                      Program (..), attributes, border, button,
                                      column, input, row, text)
 import           CLI.Types.Internal (Focus (..))
+import           Compat             (Monad (..))
+import qualified Compat
 import           Graphics.Vty       (Vty)
 import qualified Graphics.Vty       as Vty
 import qualified List
 import qualified Maybe
-import           "base" Prelude     (Monad (..))
-import qualified "base" Prelude     as P
 import qualified String
 import qualified Tuple
 
@@ -64,8 +63,8 @@ mainLoop vty view update initialModel =
             Vty.showCursor $ Vty.outputIface vty
             Vty.setCursorPos
               (Vty.outputIface vty)
-              (P.fromIntegral r)
-              (P.fromIntegral c)
+              (Compat.fromIntegral r)
+              (Compat.fromIntegral c)
           Nothing -> Vty.hideCursor $ Vty.outputIface vty
         event <- Vty.nextEvent vty
         let maybeMsgs = eventToMsgs root focus event
@@ -83,7 +82,7 @@ mainLoop vty view update initialModel =
 eventToMsgs ::
      CLI msg -> Maybe Focus -> Vty.Event -> Maybe (List msg, Maybe Focus)
 eventToMsgs root _ (Vty.EvMouseUp x y _) =
-  Just $ onClick (P.fromIntegral x) (P.fromIntegral y) root
+  Just $ onClick (Compat.fromIntegral x) (Compat.fromIntegral y) root
 eventToMsgs _ _ (Vty.EvKey Vty.KEsc []) = Nothing
 eventToMsgs root (Just focus) (Vty.EvKey (Vty.KChar '\t') []) =
   Just

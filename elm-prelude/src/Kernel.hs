@@ -4,58 +4,61 @@
 
 module Kernel
   ( Appendable(..)
-  , Equatable(..)
-  , Number(..)
-  , Comparable(..)
   , Bool(..)
+  , Char
+  , Comparable(..)
+  , Equatable(..)
   , Float
   , Int
-  , Char
-  , List
-  , Order(..)
-  , Maybe(..)
   , IO
-  , ($)
-  , (&)
+  , List
+  , Maybe(..)
+  , Monad(..)
+  , Number(..)
+  , Order(..)
   , (.)
+  , (&)
+  , ($)
+  , acos
+  , and
+  , asin
+  , atan
+  , atan2
+  , ceiling
+  , cos
+  , e
   , fdiv
+  , floor
+  , fromIntegral
+  , ge
+  , gt
   , idiv
   , isInfinite
   , isNaN
-  , sin
-  , cos
-  , tan
-  , asin
-  , acos
-  , atan
-  , atan2
-  , sqrt
+  , le
   , log
   , logBase
-  , e
-  , pi
-  , and
-  , or
-  , xor
-  , not
   , lt
-  , gt
-  , le
-  , ge
-  , notEqual
-  , toFloat
-  , round
-  , floor
-  , ceiling
-  , truncate
   , modBy
-  , remainderBy
+  , not
+  , notEqual
+  , or
   , orderToOrdering
+  , pi
+  , remainderBy
+  , round
+  , sin
+  , sqrt
+  , tan
+  , toFloat
+  , truncate
+  , xor
   ) where
 
 import           Data.Function  ((&))
 import qualified Hack
-import           "base" Prelude (Bool (..), Char, Maybe (..), ($), (.))
+import           "base" Prelude (Bool (..), Char, Maybe (..), Monad (..),
+                                 fromIntegral, ($), (.))
 import qualified "base" Prelude as P
 
 type IO a = P.IO a
@@ -116,7 +119,7 @@ class Comparable a =>
   sub :: a -> a -> a
   pow :: a -> a -> a
   negate :: a -> a
-  fromInteger :: P.Integer -> a
+  fromInteger :: Int -> a
 
 instance Number Int where
   add = (P.+)

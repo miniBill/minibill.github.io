@@ -1,5 +1,3 @@
-{-# LANGUAGE PackageImports #-}
-
 module List
   ( all
   , any

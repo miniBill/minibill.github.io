@@ -1,8 +1,8 @@
-module Main
+module Buttons
   ( main
   ) where
 
-import           CLI            (CLI, button, row, text)
+import           CLI            (AlignmentType (..), CLI, button, row, text)
 import qualified CLI
 import           CLI.Attributes (onClick)
 
@@ -25,6 +25,7 @@ update msg model =
 view :: Int -> CLI Msg
 view model =
   row
+    AlignCenter
     [ button [onClick Decrement] $ text "-"
     , text $ String.fromInt model
     , button [onClick Increment] $ text "+"

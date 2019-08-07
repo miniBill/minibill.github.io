@@ -1,5 +1,3 @@
-{-# LANGUAGE NoRebindableSyntax #-}
-
 module Prelude
   ( Bool(..)
   , Char

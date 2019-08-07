@@ -13,11 +13,11 @@ import           CLI.Types       (AlignmentType (..), Attribute (..), CLI (..),
                                   InputType (..), LayoutType (..))
 import           Color           (Color)
 import qualified Color
+import qualified Compat
 import           Graphics.Vty    (Attr, Image, Picture)
 import qualified Graphics.Vty    as Vty
 import qualified List
 import qualified Maybe
-import qualified "base" Prelude  as P
 import qualified String
 import qualified String.Internal
 import qualified Tuple
@@ -47,8 +47,8 @@ getSize widget = imageSize $ displayWidget Vty.defAttr widget
 
 imageSize :: Image -> (Int, Int)
 imageSize image =
-  ( P.fromIntegral $ Vty.imageWidth image
-  , P.fromIntegral $ Vty.imageHeight image)
+  ( Compat.fromIntegral $ Vty.imageWidth image
+  , Compat.fromIntegral $ Vty.imageHeight image)
 
 leftAlignedColumnPositions :: List (CLI msg) -> List ((Int, Int), CLI msg)
 leftAlignedColumnPositions children =
