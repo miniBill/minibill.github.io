@@ -9,7 +9,8 @@ module CLI.Layout
   , rowPositions
   ) where
 
-import           CLI.Types       (Attribute (..), CLI (..), InputType (..))
+import           CLI.Types       (AlignmentType (..), Attribute (..), CLI (..),
+                                  InputType (..), LayoutType (..))
 import           Color           (Color)
 import qualified Color
 import           Graphics.Vty    (Attr, Image, Picture)
@@ -28,9 +29,8 @@ displayWidget :: Attr -> CLI msg -> Image
 displayWidget attr widget =
   case widget of
     Text s -> Vty.text' attr $ String.Internal.raw s -- A piece of text is simply written
-    Row children -> displayRow attr children
-    Column children -> displayColumn attr children
-    LeftAlignedColumn children -> displayLeftAlignedColumn attr children
+    Container layout alignment children ->
+      displayContainer layout alignment attr children
     Border child -> displayBorder attr child
     Attributes attrs child -> displayAttrs attr attrs child
     Input t v _ ->
@@ -88,6 +88,13 @@ rowPositions children =
         (0, []) &
       Tuple.second &
       List.reverse
+
+displayContainer ::
+     LayoutType -> AlignmentType -> Attr -> List (CLI msg) -> Image
+displayContainer LayoutRow AlignCenter    = displayRow
+displayContainer LayoutColumn AlignStart  = displayLeftAlignedColumn
+displayContainer LayoutColumn AlignCenter = displayColumn
+displayContainer _ _                      = displayRow -- TODO
 
 displayRow :: Attr -> List (CLI msg) -> Image
 displayRow attr children =

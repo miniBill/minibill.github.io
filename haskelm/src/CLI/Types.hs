@@ -1,16 +1,17 @@
 {-# LANGUAGE ImplicitPrelude #-}
 
 module CLI.Types
-  ( Attribute(..)
+  ( AlignmentType(..)
+  , Attribute(..)
   , CLI(..)
   , InputType(..)
+  , LayoutType(..)
   , Program(..)
   , attributes
   , border
   , button
   , column
   , input
-  , leftAlignedColumn
   , row
   , text
   ) where
@@ -24,12 +25,19 @@ data Attribute msg
 
 data CLI msg
   = Text String
-  | Row (List (CLI msg))
-  | LeftAlignedColumn (List (CLI msg))
-  | Column (List (CLI msg))
+  | Container LayoutType AlignmentType (List (CLI msg))
   | Attributes (List (Attribute msg)) (CLI msg)
   | Border (CLI msg)
   | Input InputType String (String -> msg)
+
+data LayoutType
+  = LayoutRow
+  | LayoutColumn
+
+data AlignmentType
+  = AlignStart
+  | AlignCenter
+  | AlignEnd
 
 data InputType
   = TypeText
@@ -50,17 +58,14 @@ button attrs = Attributes attrs . Border
 border :: CLI msg -> CLI msg
 border = Border
 
-leftAlignedColumn :: List (CLI msg) -> CLI msg
-leftAlignedColumn = LeftAlignedColumn
-
-column :: List (CLI msg) -> CLI msg
-column = Column
+column :: AlignmentType -> List (CLI msg) -> CLI msg
+column = Container LayoutColumn
 
 input :: InputType -> String -> (String -> msg) -> CLI msg
 input = Input
 
-row :: List (CLI msg) -> CLI msg
-row = Row
+row :: AlignmentType -> List (CLI msg) -> CLI msg
+row = Container LayoutRow
 
 text :: String -> CLI msg
 text = Text

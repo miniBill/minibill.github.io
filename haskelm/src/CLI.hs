@@ -6,12 +6,12 @@ module CLI
   ( CLI
   , InputType(..)
   , Program(..)
+  , AlignmentType(..)
   , attributes
   , border
   , button
   , column
   , input
-  , leftAlignedColumn
   , row
   , run
   , run_
@@ -23,9 +23,10 @@ import qualified Char
 import           CLI.Attributes     (Attribute (..))
 import qualified CLI.Focus          as Focus
 import qualified CLI.Layout         as Layout
-import           CLI.Types          (CLI (..), InputType (..), Program (..),
-                                     attributes, border, button, column, input,
-                                     leftAlignedColumn, row, text)
+import           CLI.Types          (AlignmentType (..), CLI (..),
+                                     InputType (..), LayoutType (..),
+                                     Program (..), attributes, border, button,
+                                     column, input, row, text)
 import           CLI.Types.Internal (Focus (..))
 import           Graphics.Vty       (Vty)
 import qualified Graphics.Vty       as Vty
@@ -119,10 +120,7 @@ onKeyUp key modifiers =
       go (Border child) focus = go child focus
       go (Attributes _ child) focus = go child focus
       go (Input _ v onInput) (This i) = onInputKeyUp v onInput i key modifiers
-      go (Row children) (ChildFocus i cfocus) = containerKeyUp children i cfocus
-      go (LeftAlignedColumn children) (ChildFocus i cfocus) =
-        containerKeyUp children i cfocus
-      go (Column children) (ChildFocus i cfocus) =
+      go (Container _ _ children) (ChildFocus i cfocus) =
         containerKeyUp children i cfocus
       go (Text _) _ = ([], Nothing)
       go _ _ = ([], Nothing)
@@ -189,13 +187,15 @@ onClick relx rely root =
       (msgs, focus) =
         case root of
           Text _ -> ([], Nothing)
-          Row children ->
+          Container LayoutRow AlignCenter children ->
             containerClick ChildFocus $ Layout.rowPositions children
-          LeftAlignedColumn children ->
+          Container LayoutColumn AlignStart children ->
             containerClick ChildFocus $
             Layout.leftAlignedColumnPositions children
-          Column children ->
+          Container LayoutColumn AlignCenter children ->
             containerClick ChildFocus $ Layout.columnPositions children
+          Container _ _ children ->
+            containerClick ChildFocus $ Layout.rowPositions children -- TODO
           Border child ->
             let (w, h) = Layout.getSize child
              in if relx < (w + 2) && rely < (h + 2)

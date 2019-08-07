@@ -2,8 +2,8 @@ module Main
   ( main
   ) where
 
-import           CLI            (CLI, attributes, input, leftAlignedColumn, row,
-                                 text)
+import           CLI            (AlignmentType (..), CLI, attributes, column,
+                                 input, row, text)
 import qualified CLI
 import           CLI.Attributes (foregroundColor)
 import qualified Color
@@ -35,7 +35,8 @@ update msg model =
 
 view :: Model -> CLI Msg
 view (model@(Model name' password' passwordAgain')) =
-  leftAlignedColumn
+  column
+    AlignStart
     [ viewInput CLI.TypeText "Name" name' Name
     , viewInput CLI.TypePassword "Password" password' Password
     , viewInput CLI.TypePassword "Password (again)" passwordAgain' PasswordAgain
@@ -43,7 +44,7 @@ view (model@(Model name' password' passwordAgain')) =
     ]
 
 viewInput :: CLI.InputType -> String -> String -> (String -> msg) -> CLI msg
-viewInput t p v toMsg = row [text $ p ++ ":", input t v toMsg]
+viewInput t p v toMsg = row AlignCenter [text $ p ++ ":", input t v toMsg]
 
 viewValidation :: Model -> CLI msg
 viewValidation model =
