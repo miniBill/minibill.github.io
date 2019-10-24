@@ -4,7 +4,7 @@
         <title>Ground Level Magic</title>
         <link>https://groundlevelmagic.tk/posts</link>
         <description>doing magic while keeping it simple</description>
-        <lastBuildDate>Sun, 04 Aug 2019 16:38:24 GMT</lastBuildDate>
+        <lastBuildDate>Thu, 24 Oct 2019 21:54:13 GMT</lastBuildDate>
         <docs>http://blogs.law.harvard.edu/tech/rss</docs>
         <generator>Elmstatic</generator>
         <language>en</language>
@@ -15,66 +15,20 @@
         </image>
         <copyright>Copyright: Leonardo Taglialegne</copyright>
         <item>
-            <title><![CDATA[HaskElm #1: getting the (ca)ball rolling]]></title>
-            <link>https://groundlevelmagic.tk/posts/2019-07-31-haskelm-1-getting-the-caball-rolling</link>
-            <guid>https://groundlevelmagic.tk/posts/2019-07-31-haskelm-1-getting-the-caball-rolling</guid>
-            <pubDate>Wed, 31 Jul 2019 00:00:00 GMT</pubDate>
+            <title><![CDATA[Advanced Elm: Codecs]]></title>
+            <link>https://groundlevelmagic.tk/posts/2019-10-24-advanced-elm-codecs</link>
+            <guid>https://groundlevelmagic.tk/posts/2019-10-24-advanced-elm-codecs</guid>
+            <pubDate>Thu, 24 Oct 2019 00:00:00 GMT</pubDate>
             <description><![CDATA[
-Introduction
-*HaskElm is a project in which I try and rewrite a Prelude for Haskell that feels like Elm's Prelude.
+Intoduction
+Advanced Elm is a project to show some of the more advanced corners of the Elm language.
 
-This set of posts is aimed at people with some experience in Elm (having read the guide should be enough) and no experience in Haskell.
-It is structured as a log of my explorations, rather than a tutorial or an howto, so it will have warts, false ends and errors (although I'll cut some of the uninteresting ones).*
+I have some objective for this project:
+showing that Elm, while simple and perfect for beginners, is powerful enough for a lot of advanced scenarios,
+trying to unravel how to use advanced language features like phantom types and extensible records,
+try to shed light on how do I come up with the types, and the APIs.
 
-Let's start with a minimal viable example: the target will be to c...]]></description>
-        </item>
-        <item>
-            <title><![CDATA[HaskElm #2: don't put that on record]]></title>
-            <link>https://groundlevelmagic.tk/posts/2019-08-01-haskelm-2-don-t-put-that-on-record</link>
-            <guid>https://groundlevelmagic.tk/posts/2019-08-01-haskelm-2-don-t-put-that-on-record</guid>
-            <pubDate>Thu, 01 Aug 2019 00:00:00 GMT</pubDate>
-            <description><![CDATA[
-Introduction
-HaskElm is a project in which I try and rewrite a Prelude for Haskell that feels like Elm's Prelude.
-
-This set of posts is aimed at people with some experience in Elm (having read the guide should be enough) and no experience in Haskell.
-It is structured as a log of my explorations, rather than a tutorial or an howto, so it will have warts, false ends and errors (although I'll cut some of the uninteresting ones).
-
-In part I we tried to work with records in Haskell.
-
-It was painful ...]]></description>
-        </item>
-        <item>
-            <title><![CDATA[HaskElm #3: egyptian (n)curses]]></title>
-            <link>https://groundlevelmagic.tk/posts/2019-08-03-haskelm-3-egyptian-ncurses</link>
-            <guid>https://groundlevelmagic.tk/posts/2019-08-03-haskelm-3-egyptian-ncurses</guid>
-            <pubDate>Sat, 03 Aug 2019 00:00:00 GMT</pubDate>
-            <description><![CDATA[
-Introduction
-HaskElm is a project in which I try and rewrite a Prelude for Haskell that feels like Elm's Prelude.
-
-This set of posts is aimed at people with some experience in Elm (having read the guide should be enough) and no experience in Haskell.
-It is structured as a log of my explorations, rather than a tutorial or an howto, so it will have warts, false ends and errors (although I'll cut some of the uninteresting ones).
-
-In part II we actually managed to put something on the screen!
-
-In t...]]></description>
-        </item>
-        <item>
-            <title><![CDATA[HaskElm #4: Prelude (to the foundation)]]></title>
-            <link>https://groundlevelmagic.tk/posts/2019-08-04-haskelm-4-prelude-to-the-foundation</link>
-            <guid>https://groundlevelmagic.tk/posts/2019-08-04-haskelm-4-prelude-to-the-foundation</guid>
-            <pubDate>Sun, 04 Aug 2019 00:00:00 GMT</pubDate>
-            <description><![CDATA[
-Introduction
-HaskElm is a project in which I try and rewrite a Prelude for Haskell that feels like Elm's Prelude.
-
-This set of posts is aimed at people with some experience in Elm (having read the guide should be enough) and no experience in Haskell.
-It is structured as a log of my explorations, rather than a tutorial or an howto, so it will have warts, false ends and errors (although I'll cut some of the uninteresting ones).
-
-In part III we wrote the (rudimental) mouse handling code.
-
-In this ...]]></description>
+In this post I'll explain how I write libraries that use advanced types, using ...]]></description>
         </item>
         <item>
             <title><![CDATA[All posts]]></title>
