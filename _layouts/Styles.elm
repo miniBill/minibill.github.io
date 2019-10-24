@@ -14,7 +14,7 @@ styles =
             withMedia [ only screen [ Media.minWidth <| Css.px 600 ] ]
 
         codeStyle =
-            [ fontFamilies [ "Inconsolata", .value monospace ]
+            [ fontFamilies [ "Fira Code", .value monospace ]
             ]
     in
     global

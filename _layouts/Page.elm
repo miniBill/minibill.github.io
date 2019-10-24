@@ -103,7 +103,7 @@ layout title contentItems =
            , div [ class "sidebar2" ]
                 []
            , div [ class "content" ]
-                ([ h1 [] [ text title ] ] ++ contentItems)
+                (h1 [] [ text title ] :: contentItems)
            , footer
            , Elmstatic.stylesheet "/styles.css"
            , Styles.styles

@@ -47,7 +47,10 @@ type alias PostList =
 
 
 type alias Content a =
-    { a | siteTitle : String, title : String }
+    { a
+        | siteTitle : String
+        , title : String
+    }
 
 
 type alias Layout =
@@ -112,7 +115,7 @@ htmlTemplate title contentNodes =
             , script "//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.15.1/languages/bash.min.js"
             , inlineScript "hljs.initHighlightingOnLoad();"
             , stylesheet "//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.15.1/styles/default.min.css"
-            , stylesheet "//fonts.googleapis.com/css?family=Open+Sans|Proza+Libre|Inconsolata"
+            , stylesheet "//fonts.googleapis.com/css?family=Open+Sans|Proza+Libre|Fira+Code"
             ]
         , node "body" [] contentNodes
         ]
@@ -134,6 +137,6 @@ layout decoder view =
                         { title = ""
                         , body = [ htmlTemplate content.siteTitle <| view content ]
                         }
-        , update = \msg contentJson -> ( contentJson, Cmd.none )
+        , update = \_ contentJson -> ( contentJson, Cmd.none )
         , subscriptions = \_ -> Sub.none
         }
