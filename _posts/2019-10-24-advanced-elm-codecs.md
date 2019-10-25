@@ -58,7 +58,7 @@ For getting fields' value we can use Elm's dot notation `.field`, and names can 
 
 In the spirit of [`elm/parser`](https://package.elm-lang.org/packages/elm/parser/latest/) or [`elm-decode-pipeline`](https://package.elm-lang.org/packages/NoRedInk/elm-decode-pipeline/latest/) (always look for inspiration in commonly used libraries!) we'll try to create a pipeline API:
 
-```
+```Elm
 type alias Point =
     { x : Float
     , y : Float
@@ -90,7 +90,7 @@ The first three are trivial, the interesting point if the last one! We basically
 #### Partial cases ####
 This is probably the simplest idea, and possibly (haven't tried) the easiest implementation:
 
-```
+```Elm
 type Box a b
     = Two a b
     | One a
@@ -118,7 +118,7 @@ The only way to extract data from a value is to use pattern matching with `case`
 Once we've asked the library user to write `case` statements, why don't we go all the way and actually ask them to write the full `case` expression?
 This immediately gives us the guarantee that there are no forgotten variants, so let's try and write the API:
 
-```
+```Elm
 type Box a b
     = Two a b
     | One a
@@ -156,7 +156,7 @@ Why was the section introducing APIs called Antophilia you ask? Well, "api" in I
 ### Basics ###
 Nothing to see here (code has been compressed, the library is actually `elm-format`ted and has type annotations):
 
-```
+```Elm
 build encoder_ decoder_ = Codec { encoder = encoder_, decoder = decoder_ }
 
 string = build JE.string JD.string
@@ -167,7 +167,7 @@ float = build JE.float JD.float
 
 The only midly interesting one is for `char`:
 
-```
+```Elm
 char =
     build
         (String.fromChar >> JE.string)
@@ -192,7 +192,7 @@ Those are absolutely obvious too. You can have a look at `elm-codec`'s source if
 ### Records ###
 Let's remember the API we're aiming at:
 
-```
+```Elm
 type alias Point =
     { x : Float
     , y : Float
@@ -209,7 +209,7 @@ Again, we're missing a final `buildObject` in the pipeline, **but we don't know 
 
 We start by considering the simplest case: a record with a single field.
 
-```
+```Elm
 type alias Box =
     { x : Int
     }
@@ -235,7 +235,7 @@ This will actually turn out to be false, but we're almost there.
 
 Implementation time!
 
-```
+```Elm
 field : String -> (obj -> field) -> Codec field -> Codec (field -> obj) -> Codec obj
 field name fieldGetter (Codec fieldCodec) (Codec partialCodec) =
     build
@@ -262,7 +262,7 @@ Let's pretend that we are implementing this in JS/another language and let's foc
 
 Let's go for the secound route (the first one is left as a challenge to the reader).
 
-```
+```Elm
 type ObjectCodec a
     = ObjectCodec
         { encoder : a -> List ( String, Value )
@@ -286,7 +286,7 @@ Ah. Not much better! The problem is that `encoder` is `a -> ...` and `decoder` i
 
 Let's make ourselves a little more room to work:
 
-```
+```Elm
 type ObjectCodec a b
     = ObjectCodec
         { encoder : a -> List ( String, Value )
@@ -320,7 +320,7 @@ And we want to create a `obj -> List (String Value)`. This is now trivial: `\v -
 
 So what happens in the `Point` case? `object` must return `ObjectCodec Point (Float -> Float -> Point)`, so it's simply:
 
-```
+```Elm
 object ctor =
     ObjectCodec
         { encoder = \_ -> []
@@ -330,7 +330,7 @@ object ctor =
 
 And the final value in the pipeline is an `ObjectCodec Point Point` which suggest that
 
-```
+```Elm
 buildObject : ObjectCodec a a -> Codec a
 buildObject (ObjectCodec om) =
     Codec

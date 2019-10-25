@@ -15,6 +15,7 @@ styles =
 
         codeStyle =
             [ fontFamilies [ "Fira Code", .value monospace ]
+            , backgroundColor <| hex "f0f0f0"
             ]
     in
     global
@@ -34,7 +35,7 @@ styles =
         , code codeStyle
         , Css.Global.pre
             [ descendants
-                [ code [ important <| overflowX Css.scroll ] ]
+                [ code [ important <| overflowX Css.auto ] ]
             ]
         , each [ h1, h2, h3, h4, h5, h6 ]
             [ fontFamilies [ "Proza Libre", "Helvetica", .value sansSerif ]

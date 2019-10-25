@@ -42,7 +42,7 @@ markdown s =
     let
         mdOptions : Markdown.Options
         mdOptions =
-            { defaultHighlighting = Just "haskell"
+            { defaultHighlighting = Just "Elm"
             , githubFlavored = Just { tables = True, breaks = False }
             , sanitize = False
             , smartypants = True
