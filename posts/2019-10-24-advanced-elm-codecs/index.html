@@ -36,7 +36,7 @@ It (almost, we’ll see why) guarantees that the encoders and decoders are actua
 <p>The first point is once for each record, the last three are once per field. Every type alias (and records will often by type aliases) automatically creates a function to build a record of that type, so the alias name could be exactly what we need.</p>
 <p>For getting fields’ value we can use Elm’s dot notation <code>.field</code>, and names can be simple strings.</p>
 <p>In the spirit of <a href="https://package.elm-lang.org/packages/elm/parser/latest/"><code>elm/parser</code></a> or <a href="https://package.elm-lang.org/packages/NoRedInk/elm-decode-pipeline/latest/"><code>elm-decode-pipeline</code></a> (always look for inspiration in commonly used libraries!) we’ll try to create a pipeline API:</p>
-<pre><code>type alias Point =
+<pre><code class="lang-Elm">type alias Point =
     { x : Float
     , y : Float
     }
@@ -46,7 +46,8 @@ pointCodec =
     object Point
         |&gt; field "x" .x Codec.float
         |&gt; field "y" .y Codec.float
-</code></pre><p>Turns out we can <em>almost</em> implement this API. The only difference will be that after all the <code>field</code> lines, one needs a <code>buildObject</code> for technical reasons. We <em>could</em> implement this exact API but it would complicate the whole implementation for negligible gains.</p>
+</code></pre>
+<p>Turns out we can <em>almost</em> implement this API. The only difference will be that after all the <code>field</code> lines, one needs a <code>buildObject</code> for technical reasons. We <em>could</em> implement this exact API but it would complicate the whole implementation for negligible gains.</p>
 <p>If you want a challenge you can try do it. Hint: change the <code>encoder</code> inside the opaque type from <code>a -&gt; Value</code> to <code>a -&gt; (Value, List (String, Value))</code> and use the second item in the tuple to rebuild the current <code>Value</code> every time you pass through a <code>field</code>. This is inefficent, and horrible and means that every other Codec has to produce an useless empty list, but it does clean the API a tiny bit. There are always choices to be made and the answer is not always obvious!</p>
 <h3 id="custom-types">Custom types</h3>
 <p>This is the hardest part, and where <code>elm-codec</code> is novel, compared to for example <a href="https://old.elm.dmy.fr/packages/jamesmacaulay/elm-json-bidirectional/1.1.0/"><code>jamesmacaulay/elm-json-bidirectional</code></a> or <a href="https://package.elm-lang.org/packages/prozacchiwawa/elm-json-codec/latest/"><code>prozacchiwawa/elm-json-codec</code></a>. This is also the reason I published <code>elm-codec</code> in the first place (the other two packages already existed, and are enough up to records).</p>
@@ -60,7 +61,7 @@ pointCodec =
 <p>The first three are trivial, the interesting point if the last one! We basically have two routes:</p>
 <h4 id="partial-cases">Partial cases</h4>
 <p>This is probably the simplest idea, and possibly (haven’t tried) the easiest implementation:</p>
-<pre><code>type Box a b
+<pre><code class="lang-Elm">type Box a b
     = Two a b
     | One a
     | Empty
@@ -78,12 +79,13 @@ boxCodec =
                     Nothing
         )
         aCodec bCodec
-</code></pre><p>This would work, but it doesn’t enlist the compiler for helping the user! There is not way to check that the user has written a matcher for every variant.</p>
+</code></pre>
+<p>This would work, but it doesn’t enlist the compiler for helping the user! There is not way to check that the user has written a matcher for every variant.</p>
 <h4 id="-case-"><code>case</code></h4>
 <p>The only way to extract data from a value is to use pattern matching with <code>case</code>, and that’s what we did in the previous subsection.
 Once we’ve asked the library user to write <code>case</code> statements, why don’t we go all the way and actually ask them to write the full <code>case</code> expression?
 This immediately gives us the guarantee that there are no forgotten variants, so let’s try and write the API:</p>
-<pre><code>type Box a b
+<pre><code class="lang-Elm">type Box a b
     = Two a b
     | One a
     | Empty
@@ -105,21 +107,23 @@ boxCodec =
         |&gt; variant2 Two aCodec bCodec
         |&gt; variant1 One aCodec
         |&gt; variant0 Empty
-</code></pre><p>As in the record case we’ll actually need a final <code>buildCustom</code> function to close the pipeline. This time I’m not sure it can be avoided, but you’re welcome to try!</p>
+</code></pre>
+<p>As in the record case we’ll actually need a final <code>buildCustom</code> function to close the pipeline. This time I’m not sure it can be avoided, but you’re welcome to try!</p>
 <p>The most generic “something using <code>x</code> and <code>y</code>“ that we can write is a function that uses them. Which function? We don’t know yet! But it’s something that will come from the <code>custom</code> function, and will be used in the <code>case</code> statement. It’s something that we must give to the user, and the only place where we give something to the user right now is the <code>box</code> for the pattern matching lambda, so it makes some sense to pass those here. We’ll expand on this later.</p>
 <h3 id="api">API</h3>
 <p>Why was the section introducing APIs called Antophilia you ask? Well, “api” in Italian means bees 😂.</p>
 <h2 id="implementation">Implementation</h2>
 <h3 id="basics">Basics</h3>
 <p>Nothing to see here (code has been compressed, the library is actually <code>elm-format</code>ted and has type annotations):</p>
-<pre><code>build encoder_ decoder_ = Codec { encoder = encoder_, decoder = decoder_ }
+<pre><code class="lang-Elm">build encoder_ decoder_ = Codec { encoder = encoder_, decoder = decoder_ }
 
 string = build JE.string JD.string
 bool = build JE.bool JD.bool
 int = build JE.int JD.int
 float = build JE.float JD.float
-</code></pre><p>The only midly interesting one is for <code>char</code>:</p>
-<pre><code>char =
+</code></pre>
+<p>The only midly interesting one is for <code>char</code>:</p>
+<pre><code class="lang-Elm">char =
     build
         (String.fromChar &gt;&gt; JE.string)
         (JD.string
@@ -133,12 +137,13 @@ float = build JE.float JD.float
                             JD.fail "Expected a single char"
                 )
         )
-</code></pre><p>We simply work around the fact that JSON has no <code>Char</code> type.</p>
+</code></pre>
+<p>We simply work around the fact that JSON has no <code>Char</code> type.</p>
 <h3 id="dict-set-list-">Dict, Set, List, …</h3>
 <p>Those are absolutely obvious too. You can have a look at <code>elm-codec</code>‘s source if you’re curious.</p>
 <h3 id="records">Records</h3>
 <p>Let’s remember the API we’re aiming at:</p>
-<pre><code>type alias Point =
+<pre><code class="lang-Elm">type alias Point =
     { x : Float
     , y : Float
     }
@@ -148,9 +153,10 @@ pointCodec =
     object Point
         |&gt; field "x" .x Codec.float
         |&gt; field "y" .y Codec.float
-</code></pre><p>Again, we’re missing a final <code>buildObject</code> in the pipeline, <strong>but we don’t know that yet</strong>, so let’s explore how we arrive there!</p>
+</code></pre>
+<p>Again, we’re missing a final <code>buildObject</code> in the pipeline, <strong>but we don’t know that yet</strong>, so let’s explore how we arrive there!</p>
 <p>We start by considering the simplest case: a record with a single field.</p>
-<pre><code>type alias Box =
+<pre><code class="lang-Elm">type alias Box =
     { x : Int
     }
 
@@ -158,7 +164,8 @@ pointCodec =
 boxCodec =
     object Box
         |&gt; field "x" .x Codec.int
-</code></pre><ul>
+</code></pre>
+<ul>
 <li><code>Box</code> has type <code>Int -&gt; Box</code>, so <code>object Box</code> will probably have <code>Int -&gt; Box</code> somewhere in its type</li>
 <li><code>.x</code> has type <code>Box -&gt; Int</code> and <code>Codec.int</code> has type <code>Int</code></li>
 <li><code>boxCodec</code> has type <code>Codec Box</code></li>
@@ -170,12 +177,13 @@ Seems promising.</p>
 <p>If we’re right <code>field "y" .y Codec.float</code> should go from <code>Something (Float -&gt; Point)</code> to <code>Codec Point</code>, and <code>object Point</code> should be <code>Something (Float -&gt; Float -&gt; Box)</code> and <code>field "x" .x Codec.float</code> goes from <code>Something (Float -&gt; Float -&gt; Point)</code> to <code>Codec (Float -&gt; Point)</code> so <code>Something</code> is <code>Codec</code>!
 This will actually turn out to be false, but we’re almost there.</p>
 <p>Implementation time!</p>
-<pre><code>field : String -&gt; (obj -&gt; field) -&gt; Codec field -&gt; Codec (field -&gt; obj) -&gt; Codec obj
+<pre><code class="lang-Elm">field : String -&gt; (obj -&gt; field) -&gt; Codec field -&gt; Codec (field -&gt; obj) -&gt; Codec obj
 field name fieldGetter (Codec fieldCodec) (Codec partialCodec) =
     build
         encoder
         decoder
-</code></pre><p>Let’s reason about types! Remember, highly generic code where the types are mostly type variables is like Sudoku, you can often write it just looking at the types.</p>
+</code></pre>
+<p>Let’s reason about types! Remember, highly generic code where the types are mostly type variables is like Sudoku, you can often write it just looking at the types.</p>
 <p>The ingredients are:</p>
 <ul>
 <li><code>name: String</code></li>
@@ -191,7 +199,7 @@ field name fieldGetter (Codec fieldCodec) (Codec partialCodec) =
 <li>create a different type for record <code>Codec</code>s.</li>
 </ul>
 <p>Let’s go for the secound route (the first one is left as a challenge to the reader).</p>
-<pre><code>type ObjectCodec a
+<pre><code class="lang-Elm">type ObjectCodec a
     = ObjectCodec
         { encoder : a -&gt; List ( String, Value )
         , decoder : Decoder a
@@ -202,7 +210,8 @@ field name fieldGetter (ObjectCodec fieldCodec) (ObjectCodec partialCodec) =
     build
         encoder
         decoder
-</code></pre><p>The ingredients are now:</p>
+</code></pre>
+<p>The ingredients are now:</p>
 <ul>
 <li><code>name: String</code></li>
 <li><code>fieldGetter : obj -&gt; field</code></li>
@@ -211,7 +220,7 @@ field name fieldGetter (ObjectCodec fieldCodec) (ObjectCodec partialCodec) =
 </ul>
 <p>Ah. Not much better! The problem is that <code>encoder</code> is <code>a -&gt; ...</code> and <code>decoder</code> is <code>Decoder a</code>, but while we’re building the <code>Codec</code>, <code>a</code> is a function type, which is not going to work.</p>
 <p>Let’s make ourselves a little more room to work:</p>
-<pre><code>type ObjectCodec a b
+<pre><code class="lang-Elm">type ObjectCodec a b
     = ObjectCodec
         { encoder : a -&gt; List ( String, Value )
         , decoder : Decoder b
@@ -222,7 +231,8 @@ field name fieldGetter (ObjectCodec fieldCodec) (ObjectCodec partialCodec) =
     build
         encoder
         decoder
-</code></pre><p>Now, if we write <code>ObjectCodec a a</code> we end up with the exact same thing, but we have more freedom if we need to.</p>
+</code></pre>
+<p>Now, if we write <code>ObjectCodec a a</code> we end up with the exact same thing, but we have more freedom if we need to.</p>
 <p>The ingredients are at last:</p>
 <ul>
 <li><code>name: String</code></li>
@@ -240,19 +250,21 @@ field name fieldGetter (ObjectCodec fieldCodec) (ObjectCodec partialCodec) =
 </ul>
 <p>And we want to create a <code>obj -&gt; List (String Value)</code>. This is now trivial: <code>\v -&gt; ( name, fieldCodec.encoder &lt;| fieldGetter v ) :: partialCodec.encoder v</code>.</p>
 <p>So what happens in the <code>Point</code> case? <code>object</code> must return <code>ObjectCodec Point (Float -&gt; Float -&gt; Point)</code>, so it’s simply:</p>
-<pre><code>object ctor =
+<pre><code class="lang-Elm">object ctor =
     ObjectCodec
         { encoder = \_ -&gt; []
         , decoder = Json.Decode.succeed ctor
         }
-</code></pre><p>And the final value in the pipeline is an <code>ObjectCodec Point Point</code> which suggest that</p>
-<pre><code>buildObject : ObjectCodec a a -&gt; Codec a
+</code></pre>
+<p>And the final value in the pipeline is an <code>ObjectCodec Point Point</code> which suggest that</p>
+<pre><code class="lang-Elm">buildObject : ObjectCodec a a -&gt; Codec a
 buildObject (ObjectCodec om) =
     Codec
         { encoder = \v -&gt; JE.object &lt;| om.encoder v
         , decoder = om.decoder
         }
-</code></pre><p>And we’re done!</p>
+</code></pre>
+<p>And we’re done!</p>
 <h3 id="custom-types">Custom types</h3>
 <p>To be continued…</p>
 </div></div><div class="footer"><img alt="miniBill's blog" src="/img/logo.png" style="float: left; padding-top: 7px" width="75"><div class="link"><a href="https://github.com/miniBill"><svg width="16" height="16" viewbox="0 0 16 16"><path fill="#fff" d="
@@ -276,10 +288,11 @@ a {
 
 code {
     font-family:Fira Code, monospace;
+    background-color:#f0f0f0;
 }
 
 pre  code {
-    overflow-x:scroll !important;
+    overflow-x:auto !important;
 }
 
 h1, h2, h3, h4, h5, h6 {
