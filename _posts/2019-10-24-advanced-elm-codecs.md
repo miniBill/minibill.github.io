@@ -4,14 +4,14 @@ tags: elm design phantom_types
 ---
 
 ## Intoduction ##
-*Advanced Elm is a project to show some of the more advanced corners of the Elm language.*
+*Advanced Elm is a project to explore some of the more advanced corners of the Elm language.*
 
-I have some objective for this project:
+I have some objective for Advanced Elm:
 1. showing that Elm, while simple and perfect for beginners, is powerful enough for a lot of advanced scenarios,
 2. trying to unravel how to use advanced language features like phantom types and extensible records,
-3. try to shed light on how do I come up with the types, and the APIs.
+3. trying to shed some light on how I come up with the types, and the APIs.
 
-In this post I'll explain how I write libraries that use advanced types, using [`elm-codec`](https://package.elm-lang.org/packages/miniBill/elm-codec/latest) as an example.
+In this post I'll explain how I write libraries that use difficult types, using [`elm-codec`](https://package.elm-lang.org/packages/miniBill/elm-codec/latest) as an example.
 
 Rather than explaining how the current code works I'll reimplement it from scratch to emphasize the design process.
 
@@ -23,7 +23,7 @@ It (almost, we'll see why) guarantees that the encoders and decoders are actuall
 ## Antophilia ##
 I'll usually start the design process from an API, and I'll try to create the best API that I think is feasible within the language.
 
-We'll have a `Codec a` type for a pair of `a -> Value`, `Decoder a` values. When in doubt, start with an opaque types, there's always time to expose more in a point release (if you instead want to expose less, that's a breaking change).
+We'll have a `Codec a` type for a pair of `a -> Value`, `Decoder a` values. When in doubt, start with an opaque type, there's always time to expose more in a point release (if you instead want to expose less, that's a breaking change).
 
 Let's write the simplest thing that could possibly work:
 ```
@@ -35,10 +35,6 @@ type Codec a
 ```
 
 This is actually the definition of a `Codec a` in `elm-codec`!
-
-### Basics ###
-
-Codecs for basic types (`Bool`, `Int`, `String`, ...) are trivial, just take the correspoding pair of encode/decoder straight from `elm/json` and you've got your codec.
 
 ### Records ###
 
@@ -52,11 +48,11 @@ We will certainly need:
 3. the names of the fields (because we want to produce a nice JSON object);
 4. codecs for the fields.
 
-The first point is once for each record, the last three are once per field. Every type alias (and records will often by type aliases) automatically creates a function to build a record of that type, so the alias name could be exactly what we need.
+The first point is something we need once for each record, the last three are once per field. Every type alias (and records will often be type aliases) automatically creates a function to build a record of that type, so the alias name could be what we need for point 1.
 
-For getting fields' value we can use Elm's dot notation `.field`, and names can be simple strings.
+To get fields' values we can use Elm's dot notation `.field`, and names can be simple strings.
 
-In the spirit of [`elm/parser`](https://package.elm-lang.org/packages/elm/parser/latest/) or [`elm-decode-pipeline`](https://package.elm-lang.org/packages/NoRedInk/elm-decode-pipeline/latest/) (always look for inspiration in commonly used libraries!) we'll try to create a pipeline API:
+In the spirit of [`elm/parser`](https://package.elm-lang.org/packages/elm/parser/latest/) or [`elm-decode-pipeline`](https://package.elm-lang.org/packages/NoRedInk/elm-decode-pipeline/latest/) (always look for inspiration in commonly used libraries, they've often put a lot of tought into API design) we'll try to create a pipeline API:
 
 ```Elm
 type alias Point =
@@ -73,11 +69,11 @@ pointCodec =
 
 Turns out we can *almost* implement this API. The only difference will be that after all the `field` lines, one needs a `buildObject` for technical reasons. We *could* implement this exact API but it would complicate the whole implementation for negligible gains.
 
-If you want a challenge you can try do it. Hint: change the `encoder` inside the opaque type from `a -> Value` to `a -> (Value, List (String, Value))` and use the second item in the tuple to rebuild the current `Value` every time you pass through a `field`. This is inefficent, and horrible and means that every other Codec has to produce an useless empty list, but it does clean the API a tiny bit. There are always choices to be made and the answer is not always obvious!
+If you want a challenge you can try do it. Hint: change the `encoder` inside the opaque type from `a -> Value` to `a -> (Value, List (String, Value))` and use the second item in the tuple to rebuild the current `Value` every time you pass through a `field`. This is inefficent, and horrible and means that every other Codec has to produce an useless empty list. Also, as we'll see later, the `Codec a` type might not be enough for a record decoder while we're building it.
 
 ### Custom types ###
 
-This is the hardest part, and where `elm-codec` is novel, compared to for example [`jamesmacaulay/elm-json-bidirectional`](https://old.elm.dmy.fr/packages/jamesmacaulay/elm-json-bidirectional/1.1.0/) or [`prozacchiwawa/elm-json-codec`](https://package.elm-lang.org/packages/prozacchiwawa/elm-json-codec/latest/). This is also the reason I published `elm-codec` in the first place (the other two packages already existed, and are enough up to records).
+This is the hardest part, and where `elm-codec` is novel compared to, for example [`jamesmacaulay/elm-json-bidirectional`](https://old.elm.dmy.fr/packages/jamesmacaulay/elm-json-bidirectional/1.1.0/) or [`prozacchiwawa/elm-json-codec`](https://package.elm-lang.org/packages/prozacchiwawa/elm-json-codec/latest/). This is also the reason I published `elm-codec` in the first place: the other two packages already existed, and are fine for basic types and records, but have low support for custom types.
 
 We will need:
 1. ways to build the variants;
@@ -85,9 +81,9 @@ We will need:
 3. the arguments' codecs;
 4. a way to extract the variant name and arguments from a value of the custom type.
 
-The first three are trivial, the interesting point if the last one! We basically have two routes:
+The first three are trivial, the interesting point if the last one! We basically have two possible designes:
 
-#### Partial cases ####
+#### Partial pattern matching ####
 This is probably the simplest idea, and possibly (haven't tried) the easiest implementation:
 
 ```Elm
@@ -111,10 +107,10 @@ boxCodec =
         aCodec bCodec
 ```
 
-This would work, but it doesn't enlist the compiler for helping the user! There is not way to check that the user has written a matcher for every variant.
+This would work, but it doesn't use the compiler to help the user! There is no way to check that the user has written a matcher for every variant.
 
 #### `case` ####
-The only way to extract data from a value is to use pattern matching with `case`, and that's what we did in the previous subsection.
+In general, the only way to extract arguments if you have a value of a custom type is to use pattern matching with `case`, and that's what we did in the previous subsection.
 Once we've asked the library user to write `case` statements, why don't we go all the way and actually ask them to write the full `case` expression?
 This immediately gives us the guarantee that there are no forgotten variants, so let's try and write the API:
 
@@ -143,9 +139,9 @@ boxCodec =
         |> variant0 Empty
 ```
 
-As in the record case we'll actually need a final `buildCustom` function to close the pipeline. This time I'm not sure it can be avoided, but you're welcome to try!
+As in the record case we'll actually need a final `buildCustom` function to close the pipeline. Again, if you find a clever way to avoid it, do let me know!
 
-The most generic "something using `x` and `y`" that we can write is a function that uses them. Which function? We don't know yet! But it's something that will come from the `custom` function, and will be used in the `case` statement. It's something that we must give to the user, and the only place where we give something to the user right now is the `box` for the pattern matching lambda, so it makes some sense to pass those here. We'll expand on this later.
+The most generic "something using `x` and `y`" that we can write is a function that uses them. Which function? We don't know yet! But it's something that will probably come from the `custom` function, and will be used in the `case` statement. It's something that we must give to the user and adding more arguments to the pattern match lambda besides `box` looks good, but we'll expand on this later.
 
 ### API ###
 
@@ -243,7 +239,7 @@ field name fieldGetter (Codec fieldCodec) (Codec partialCodec) =
         decoder
 ```
 
-Let's reason about types! Remember, highly generic code where the types are mostly type variables is like Sudoku, you can often write it just looking at the types.
+Let's reason about types! Remember, highly generic code where the types are mostly type variables is like Sudoku, you can often understand what you need to write it just by looking at all the types.
 
 The ingredients are:
 * `name: String`
@@ -253,9 +249,9 @@ The ingredients are:
 
 `decoder`'s type is `Decoder obj`, and if we look at the ingredients this has the exact same type of `Json.Decode.map2 (\f v -> f v) partialCodec.decoder fieldCodec.decoder`! The actual correct implementation is `Json.Decode.map2 (\f v -> f v) partialCodec.decoder (Json.Decode.field name fieldCodec.decoder)` because we need to extract the value from the JSON object's field.
 
-`encoder`'s type is `obj -> Value`, and we could write `fieldCodec.encoder << fieldGetter` but it's quite evident that we would be dropping all the information from our record except from that single field, so it can't be right. The only other ingredient left is `partialCodec.encoder` but it has a strange type, how can it convert a function into a `Value`? Something is fishy!
+`encoder`'s type is `obj -> Value`, and we could write `fieldCodec.encoder << fieldGetter` but it's quite evident that we would be dropping all the information from our record except from that single field so it can't be right, we need to use `partialCodec.encoder`, but it has a strange type, how can it convert a function `field -> obj` into a `Value`? Something is fishy!
 
-Let's pretend that we are implementing this in JS/another language and let's focus on the encoding part. We start with the record constructor, which we don't need for encoding, let's go on. When we encounter a `field`, we are given the field getter, name and `Codec`, so we can extract the value, name it and turn into a JSON value. If this were JS this is were we would add it to the object we are building, but in Elm there is no facility for adding fields to a `Value` (it could be something different from an object after all!). What do we have in Elm that supports adding? `Dict`s and `List`! For this usecase we never need to get single items after we add them, so a `List` will do. If we start thinking in terms of adding `(String, Value)` couples to a list we quickly realize that we need to either:
+Let's pretend that we are implementing this in JS/another language and let's focus on the encoding part. We start with the record constructor, which we don't need for encoding, let's go on. When we encounter a `field`, we are given the field getter, name and `Codec`, so we can extract the value, name it and turn into a JSON value. If this were JS this is were we would add it to the object we are building, but in Elm there is no facility for adding fields to a `Value` (it could be something different from an object after all!). What do we have in Elm that supports adding? `Dict`s and `List`! For this usecase we never need to get individual items after we add them, so a `List` will do. If we start thinking in terms of adding `(String, Value)` couples to a list we quickly realize that we need to either:
 
 * change the definition of `Codec` to keep this `List` around, but this is messy for every other type beside records or
 * create a different type for record `Codec`s.
@@ -342,4 +338,50 @@ buildObject (ObjectCodec om) =
 And we're done!
 
 ### Custom types ###
-To be continued...
+This is the really interesting part. Let's remember the target API:
+
+```Elm
+type Box a b
+    = Two a b
+    | One a
+    | Empty
+
+
+boxCodec aCodec bCodec =
+    custom
+        (\box ->
+            case box of
+                Two x y ->
+                    Debug.todo "two"
+
+                One x ->
+                    Debug.todo "one"
+
+                Empty ->
+                    Debug.todo "zero"
+        )
+        |> variant2 Two aCodec bCodec
+        |> variant1 One aCodec
+        |> variant0 Empty
+```
+
+And let's write a simpler example:
+
+```Elm
+type Box a
+    = One a
+
+
+boxCodec aCodec =
+    custom
+        (\box ->
+            case box of
+                One x ->
+                    Debug.todo "one"
+        )
+        |> variant1 One aCodec
+```
+
+The first argument to `custom` is (`Box -> a`), and `variant1` has type `(a -> Box) -> Codec a -> something -> Codec Box`
+
+To be completed...
