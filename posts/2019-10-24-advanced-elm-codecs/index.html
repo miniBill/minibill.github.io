@@ -1,4 +1,4 @@
-<!doctype html><html><head><title>Advanced Elm: Codecs | Ground Level Magic</title><meta charset="utf-8"><script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.15.1/highlight.min.js"></script><script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.15.1/languages/elm.min.js"></script><script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.15.1/languages/haskell.min.js"></script><script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.15.1/languages/bash.min.js"></script><script>hljs.initHighlightingOnLoad();</script><link href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.15.1/styles/default.min.css" rel="stylesheet" type="text/css"><link href="//fonts.googleapis.com/css?family=Open+Sans|Proza+Libre|Fira+Code" rel="stylesheet" type="text/css"></head><body><div class="header-logo"><img alt="miniBill's blog" src="/img/logo.png" width="100"></div><div class="navigation"><ul><li><a href="/posts">Posts</a></li><li><a href="/contact">Contact</a></li></ul></div><div class="sidebar"></div><div class="sidebar2"></div><div class="content"><h1>Advanced Elm: Codecs</h1><div class="post-metadata"><span>2019-10-24</span><span>•</span><a href="/tags/elm">elm</a><a href="/tags/design">design</a><a href="/tags/phantom_types">phantom_types</a></div><div class="markdown"><h2 id="intoduction">Intoduction</h2>
+<!doctype html><html><head><title>Advanced Elm #1: Codecs | Ground Level Magic</title><meta charset="utf-8"><script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.15.1/highlight.min.js"></script><script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.15.1/languages/elm.min.js"></script><script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.15.1/languages/haskell.min.js"></script><script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.15.1/languages/bash.min.js"></script><script>hljs.initHighlightingOnLoad();</script><link href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.15.1/styles/default.min.css" rel="stylesheet" type="text/css"><link href="//fonts.googleapis.com/css?family=Open+Sans|Proza+Libre|Fira+Code" rel="stylesheet" type="text/css"></head><body><div class="header-logo"><img alt="miniBill's blog" src="/img/logo.png" width="100"></div><div class="navigation"><ul><li><a href="/posts">Posts</a></li><li><a href="/contact">Contact</a></li></ul></div><div class="sidebar"></div><div class="sidebar2"></div><div class="content"><h1>Advanced Elm #1: Codecs</h1><div class="post-metadata"><span>2019-10-24</span><span>•</span><a href="/tags/elm">elm</a><a href="/tags/design">design</a><a href="/tags/advanced_elm">advanced_elm</a></div><div class="markdown"><h2 id="introduction">Introduction</h2>
 <p><em>Advanced Elm is a project to explore some of the more advanced corners of the Elm language.</em></p>
 <p>I have some objective for Advanced Elm:</p>
 <ol>
@@ -67,7 +67,7 @@ pointCodec =
 
 boxCodec =
     {- something here -}
-    variant2 Two
+    variant2 "Two" Two
         (\box -&gt;
             case box of
                 Two a b -&gt;
@@ -102,9 +102,9 @@ boxCodec =
                 Empty -&gt;
                     {- something -}
         )
-        |&gt; variant2 Two aCodec bCodec
-        |&gt; variant1 One aCodec
-        |&gt; variant0 Empty
+        |&gt; variant2 "Two" Two aCodec bCodec
+        |&gt; variant1 "One" One aCodec
+        |&gt; variant0 "Empty" Empty
 </code></pre>
 <p>As in the record case we’ll actually need a final <code>buildCustom</code> function to close the pipeline. Again, if you find a clever way to avoid it, do let me know!</p>
 <p>The most generic “something using <code>x</code> and <code>y</code>“ that we can write is a function that uses them. Which function? We don’t know yet! But it’s something that will probably come from the <code>custom</code> function, and will be used in the <code>case</code> statement. It’s something that we must give to the user and adding more arguments to the pattern match lambda besides <code>box</code> looks good, but we’ll expand on this later.</p>
@@ -194,8 +194,9 @@ field name fieldGetter (Codec fieldCodec) (Codec partialCodec) =
 <p>Let’s pretend that we are implementing this in JS/another language and let’s focus on the encoding part. We start with the record constructor, which we don’t need for encoding, let’s go on. When we encounter a <code>field</code>, we are given the field getter, name and <code>Codec</code>, so we can extract the value, name it and turn into a JSON value. If this were JS this is were we would add it to the object we are building, but in Elm there is no facility for adding fields to a <code>Value</code> (it could be something different from an object after all!). What do we have in Elm that supports adding? <code>Dict</code>s and <code>List</code>! For this usecase we never need to get individual items after we add them, so a <code>List</code> will do. If we start thinking in terms of adding <code>(String, Value)</code> couples to a list we quickly realize that we need to either:</p>
 <ul>
 <li>change the definition of <code>Codec</code> to keep this <code>List</code> around, but this is messy for every other type beside records or</li>
-<li>create a different type for record <code>Codec</code>s.</li>
+<li>create a different type for record <code>Codec</code>s where the <code>encoder</code> produces a <code>List ( String, Value )</code>.</li>
 </ul>
+<p>The decoder can stay the same (incidentally, this is why <a href="https://package.elm-lang.org/packages/NoRedInk/elm-decode-pipeline/latest/"><code>elm-decode-pipeline</code></a> doesn’t need the <code>buildObject</code> step).</p>
 <p>Let’s go for the secound route (the first one is left as a challenge to the reader).</p>
 <pre><code class="lang-Elm">type ObjectCodec a
     = ObjectCodec
@@ -216,7 +217,7 @@ field name fieldGetter (ObjectCodec fieldCodec) (ObjectCodec partialCodec) =
 <li><code>fieldCodec : { encoder : field -&gt; Value, decoder : Decoder field }</code></li>
 <li><code>partialCodec : { encoder : (field -&gt; obj) -&gt; List (String, Value), decoder : Decoder (field -&gt; obj) }</code></li>
 </ul>
-<p>Ah. Not much better! The problem is that <code>encoder</code> is <code>a -&gt; ...</code> and <code>decoder</code> is <code>Decoder a</code>, but while we’re building the <code>Codec</code>, <code>a</code> is a function type, which is not going to work.</p>
+<p>Ah. Not much better! The problem is that <code>encoder</code> is <code>a -&gt; ...</code> and <code>decoder</code> is <code>Decoder a</code>, but while we’re in the middle of the pipeline, <code>a</code> is a function type, which is not going to work.</p>
 <p>Let’s make ourselves a little more room to work:</p>
 <pre><code class="lang-Elm">type ObjectCodec a b
     = ObjectCodec
@@ -230,7 +231,7 @@ field name fieldGetter (ObjectCodec fieldCodec) (ObjectCodec partialCodec) =
         encoder
         decoder
 </code></pre>
-<p>Now, if we write <code>ObjectCodec a a</code> we end up with the exact same thing, but we have more freedom if we need to.</p>
+<p>Now, if we write <code>ObjectCodec a a</code> we end up with the exact same type as before, but we have more freedom if we need to.</p>
 <p>The ingredients are at last:</p>
 <ul>
 <li><code>name: String</code></li>
@@ -284,15 +285,17 @@ boxCodec aCodec bCodec =
                 Empty -&gt;
                     Debug.todo "zero"
         )
-        |&gt; variant2 Two aCodec bCodec
-        |&gt; variant1 One aCodec
-        |&gt; variant0 Empty
+        |&gt; variant2 "Two" Two aCodec bCodec
+        |&gt; variant1 "One" One aCodec
+        |&gt; variant0 "Empty" Empty
 </code></pre>
+<p>We’re going to represent custom types with objects with two field: <code>tag</code>, which is going to contain the variant name, and <code>args</code>, which is going to be an array containing the arguments we built the value with.</p>
 <p>And let’s write a simpler example:</p>
 <pre><code class="lang-Elm">type Box a
     = One a
 
 
+boxCodec : Codec a -&gt; Codec (Box a)
 boxCodec aCodec =
     custom
         (\box -&gt;
@@ -300,10 +303,134 @@ boxCodec aCodec =
                 One x -&gt;
                     Debug.todo "one"
         )
-        |&gt; variant1 One aCodec
+        |&gt; variant1 "One" One aCodec
 </code></pre>
-<p>The first argument to <code>custom</code> is (<code>Box -&gt; a</code>), and <code>variant1</code> has type <code>(a -&gt; Box) -&gt; Codec a -&gt; something -&gt; Codec Box</code></p>
-<p>To be completed…</p>
+<p>The first argument to <code>custom</code> is (<code>Box a -&gt; x</code>), and <code>variant1</code> has type <code>String -&gt; (a -&gt; Box a) -&gt; Codec a -&gt; something -&gt; Codec (Box a)</code></p>
+<p>Again, let’s suppose <code>something</code> is <code>Codec</code> because we are chaining <code>variantX</code> calls, so the result of one is the last argument of the next (and again, we’ll reach a <em>doesn’t work</em> conclusion but a priori we don’t know that).
+So <code>variant1</code> should have type <code>String -&gt; (a -&gt; Box a) -&gt; Codec a -&gt; Codec somethingElse -&gt; Codec (Box a)</code> and <code>custom</code> should have type <code>Codec somethingElse</code>. <code>somethingElse</code> should be somehow related to <code>Box a -&gt; x</code>.</p>
+<p>So:</p>
+<ul>
+<li><code>variant1</code>: <code>String -&gt; (a -&gt; Box a) -&gt; Codec a -&gt; Codec somethingElse -&gt; Codec (Box a)</code></li>
+<li><code>custom</code>: <code>{ encoder : somethingElse -&gt; Value, decoder : Decoder somethingElse}</code></li>
+<li><code>aCodec</code>: <code>{ encoder : a -&gt; Value, decoder : Decoder a }</code></li>
+<li><code>One</code>: <code>a -&gt; Box a</code></li>
+</ul>
+<p>And we want to implement:</p>
+<pre><code class="lang-Elm">variant1 : String -&gt; (a -&gt; Box a) -&gt; Codec a -&gt; Codec somethingElse -&gt; Codec (Box a)
+variant1 name ctor codec partial =
+    build
+        encoder
+        decoder
+</code></pre>
+<p>Where <code>decoder : Decoder (Box a)</code> and <code>encoder : Box a -&gt; Value</code>. Decoder is easy-ish: if the <code>tag</code> is <code>name</code> then we use <code>aCodec.decoder</code> to decode the single argument from <code>args</code> and use <code>ctor</code> to turn it into a <code>Box a</code>. What if the tag is different, you may ask? Then we’ll just fallback to <code>partial.decoder</code> in some way.</p>
+<p>Now, for the <code>encoder</code>, we still have <code>somethingElse</code> to fix. Wouldn’t it be terribly convenient if it were just <code>Box a</code>, so we could use <code>partial.encoder</code>?
+Let’s see what happens to <code>partial</code>‘s type:</p>
+<ul>
+<li><code>partial</code> : <code>{ encoder : Box a -&gt; Value, decoder: Decoder (Box a) }</code>.</li>
+</ul>
+<p>But there is no way that <code>custom</code> can produce a <code>Decoder (Box a)</code> on its own!</p>
+<p>So, once again, we need a new type!</p>
+<pre><code class="lang-Elm">type CustomCodec match v
+    = CustomCodec
+        { match : match
+        , decoder : Dict String (Decoder v)
+        }
+</code></pre>
+<p>Wait, what?</p>
+<p>The <code>decoder</code> is simply a dictionary that maps from <code>tag</code>s to decoders for that specific variant. That decoder will extract the arguments from an array and build the value, this is reasonable.</p>
+<p><code>match</code> will actually contain the lambda with the <code>case</code> that pattern matches the custom type! This is not intuitive, let’s unravel it!</p>
+<p>First things first: we have a <code>todo</code> to fill:</p>
+<pre><code class="lang-Elm">...
+boxCodec aCodec =
+    custom
+        (\box -&gt;
+            case box of
+                One x -&gt;
+                    something x
+        )
+...
+</code></pre>
+<p>Where can <code>something</code> come from? It could be a generic function defined in the <code>Codec</code> module, but we can start by simply adding it as an argument to the lambda. If we later realize that we always pass in the same value we can extract it easily.</p>
+<pre><code class="lang-Elm">...
+boxCodec aCodec =
+    custom
+        (\fone box -&gt;
+            case box of
+                One x -&gt;
+                    fone x
+        )
+...
+</code></pre>
+<p>So now <code>custom</code>‘s argument has type <code>(a -&gt; something) -&gt; Box a -&gt; something</code>. Let’s just store it in our <code>CustomCodec</code> and be happy.</p>
+<p>You might wonder why we put <code>fone</code> before <code>box</code> and not after it? This is because the type of <code>custom</code>‘s argument is missing a pair of parentheses, it’s actually <code>(a -&gt; something) -&gt; (Box a -&gt; (something))</code>, so we can pass it a function of type <code>a -&gt; something</code> (like <code>a -&gt; Value</code>!) and have it spit out something new (like <code>Box a -&gt; Value</code>!).</p>
+<p>This was already visible with records, but becomes evident with custom types: we need a type (<code>CustomCodec</code>) with two type parameters because we are actually doing two things: we are “consuming” the <code>match</code> function, filling its arguments one by one until we arrive to a <code>Box a -&gt; Value</code> function, and at the same time we are collecting <code>Decoder (Box a)</code> for the various variants. This is somewhat symmetrical to the object case!</p>
+<pre><code class="lang-Elm">custom : match -&gt; CustomCodec match value
+custom match =
+    CustomCodec
+        { match = match
+        , decoder = Dict.empty
+        }
+</code></pre>
+<p>Simple.</p>
+<p>Now <code>variant1</code> becomes:</p>
+<pre><code class="lang-Elm">variant1 : String -&gt; (a -&gt; Box a) -&gt; Codec a -&gt; CustomCodec match (Box a) -&gt; CustomCodec matchButSimpler (Box a)
+variant1 name ctor codec partial =
+    build
+        encoder
+        decoder
+</code></pre>
+<p>But we know that <code>match</code> is actually <code>(a -&gt; something) -&gt; ...</code>, and we can ask that! We’ll fix <code>something</code> to <code>Value</code> because that is actually what we’ll be using.</p>
+<pre><code class="lang-Elm">variant1 :
+    String
+    -&gt; (a -&gt; v)
+    -&gt; Codec a
+    -&gt; CustomCodec ((a -&gt; Value) -&gt; b) v
+    -&gt; CustomCodec b v
+variant1 name ctor m1 (CustomCodec am) =
+    CustomCodec
+        { match =
+            am.match &lt;|
+                \v -&gt;
+                    JE.object
+                        [ ( "tag", JE.string name )
+                        , ( "args"
+                          , JE.list identity
+                                [ encoder m1 v
+                                ]
+                          )
+                        ]
+        , decoder =
+            Dict.insert name
+                (JD.map ctor
+                    (JD.index 0 &lt;| decoder m1)
+                )
+                am.decoder
+        }
+</code></pre>
+<p>We pass to <code>am.match</code> (<code>am</code> is our partial <code>CustomCodec</code>) a function that takes the single argument and puts it inside <code>args</code>.
+For the decoder, we simply add it to the <code>Dict</code> of decoders that we’re building.</p>
+<p>The last bit of code is <code>buildCustom</code> that closes the circle:</p>
+<pre><code class="lang-Elm">buildCustom : CustomCodec (a -&gt; Value) a -&gt; Codec a
+buildCustom (CustomCodec am) =
+    Codec
+        { encoder = \v -&gt; am.match v
+        , decoder =
+            JD.field "tag" JD.string
+                |&gt; JD.andThen
+                    (\tag -&gt;
+                        case Dict.get tag am.decoder of
+                            Nothing -&gt;
+                                JD.fail &lt;| "tag " ++ tag ++ "did not match"
+
+                            Just dec -&gt;
+                                JD.field "args" dec
+                    )
+        }
+</code></pre>
+<p><code>am.match</code> is fully built by now, so we can just use it. To decode we extract the <code>tag</code> <code>andThen</code> we use the specific decoder for the arguments.</p>
+<h2 id="epilogue">Epilogue</h2>
+<p>I hope that this post helped you make more sense of the types inside <code>elm-codec</code>. I intend to continue publishing posts in the “Advanced Elm” spirit, and I think I’ll talk about either crazy compile-time checking of tree/graph structure or writing a compiler-checked <code>modBy</code>. Let me know what would you like to see!</p>
+<p>Please send me feedback via Slack, Discourse or e-mail!</p>
 </div></div><div class="footer"><img alt="miniBill's blog" src="/img/logo.png" style="float: left; padding-top: 7px" width="75"><div class="link"><a href="https://github.com/miniBill"><svg width="16" height="16" viewbox="0 0 16 16"><path fill="#fff" d="
 M7.999,0.431c-4.285,0-7.76,3.474-7.76,7.761 c0,3.428,2.223,6.337,5.307,7.363c0.388,0.071,0.53-0.168,0.53-0.374c0-0.184-0.007-0.672-0.01-1.32 c-2.159,0.469-2.614-1.04-2.614-1.04c-0.353-0.896-0.862-1.135-0.862-1.135c-0.705-0.481,0.053-0.472,0.053-0.472 c0.779,0.055,1.189,0.8,1.189,0.8c0.692,1.186,1.816,0.843,2.258,0.645c0.071-0.502,0.271-0.843,0.493-1.037 C4.86,11.425,3.049,10.76,3.049,7.786c0-0.847,0.302-1.54,0.799-2.082C3.768,5.507,3.501,4.718,3.924,3.65 c0,0,0.652-0.209,2.134,0.796C6.677,4.273,7.34,4.187,8,4.184c0.659,0.003,1.323,0.089,1.943,0.261 c1.482-1.004,2.132-0.796,2.132-0.796c0.423,1.068,0.157,1.857,0.077,2.054c0.497,0.542,0.798,1.235,0.798,2.082 c0,2.981-1.814,3.637-3.543,3.829c0.279,0.24,0.527,0.713,0.527,1.437c0,1.037-0.01,1.874-0.01,2.129 c0,0.208,0.14,0.449,0.534,0.373c3.081-1.028,5.302-3.935,5.302-7.362C15.76,3.906,12.285,0.431,7.999,0.431z
             "></path></svg></a></div><div class="link"><a href="https://twitter.com/minibill"><svg width="16" height="16" viewbox="0 0 16 16"><path fill="#fff" d="

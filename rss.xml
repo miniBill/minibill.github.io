@@ -4,7 +4,7 @@
         <title>Ground Level Magic</title>
         <link>https://groundlevelmagic.tk/posts</link>
         <description>doing magic while keeping it simple</description>
-        <lastBuildDate>Fri, 25 Oct 2019 21:59:18 GMT</lastBuildDate>
+        <lastBuildDate>Sat, 26 Oct 2019 22:13:26 GMT</lastBuildDate>
         <docs>http://blogs.law.harvard.edu/tech/rss</docs>
         <generator>Elmstatic</generator>
         <language>en</language>
@@ -15,12 +15,12 @@
         </image>
         <copyright>Copyright: Leonardo Taglialegne</copyright>
         <item>
-            <title><![CDATA[Advanced Elm: Codecs]]></title>
+            <title><![CDATA[Advanced Elm #1: Codecs]]></title>
             <link>https://groundlevelmagic.tk/posts/2019-10-24-advanced-elm-codecs</link>
             <guid>https://groundlevelmagic.tk/posts/2019-10-24-advanced-elm-codecs</guid>
             <pubDate>Thu, 24 Oct 2019 00:00:00 GMT</pubDate>
             <description><![CDATA[
-Intoduction
+Introduction
 Advanced Elm is a project to explore some of the more advanced corners of the Elm language.
 
 I have some objective for Advanced Elm:
@@ -28,7 +28,7 @@ showing that Elm, while simple and perfect for beginners, is powerful enough for
 trying to unravel how to use advanced language features like phantom types and extensible records,
 trying to shed some light on how I come up with the types, and the APIs.
 
-In this post I'll explain how I write libraries that use difficult type...]]></description>
+In this post I'll explain how I write libraries that use difficult typ...]]></description>
         </item>
         <item>
             <title><![CDATA[All posts]]></title>
