@@ -23,6 +23,7 @@ type Codec a
         }
 
 
+boxCodec : Codec a -> Codec b -> Codec (Box a b)
 boxCodec aCodec bCodec =
     custom
         (\box ->
@@ -45,14 +46,39 @@ custom matcher =
     ""
 
 
+variant0 : t -> something -> Codec t
 variant0 ctor partial =
-    ""
+    Debug.todo "variant0"
 
 
-variant1 ctor arg0 partial =
-    ""
+variant1 :
+    String
+    -> (a -> v)
+    -> Codec a
+    -> CustomCodec ((a -> Value) -> b) v
+    -> CustomCodec b v
+variant1 name ctor m1 (CustomCodec am) =
+    CustomCodec
+        { match =
+            am.match <|
+                \v ->
+                    JE.object
+                        [ ( "tag", JE.string name )
+                        , ( "args"
+                          , JE.list identity
+                                [ encoder m1 v
+                                ]
+                          )
+                        ]
+        , decoder =
+            Dict.insert name
+                (JD.map ctor
+                    (JD.index 0 <| decoder m1)
+                )
+                am.decoder
+        }
 
 
-variant2 : a -> b -> c -> d -> String
+variant2 : a -> b -> c -> d -> Codec something
 variant2 ctor arg0 arg1 partial =
-    ""
+    Debug.todo "variant2"

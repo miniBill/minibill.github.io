@@ -1,9 +1,9 @@
 ---
-title: "Advanced Elm: Codecs"
-tags: elm design phantom_types
+title: "Advanced Elm #1: Codecs"
+tags: elm design advanced_elm
 ---
 
-## Intoduction ##
+## Introduction ##
 *Advanced Elm is a project to explore some of the more advanced corners of the Elm language.*
 
 I have some objective for Advanced Elm:
@@ -95,7 +95,7 @@ type Box a b
 
 boxCodec =
     {- something here -}
-    variant2 Two
+    variant2 "Two" Two
         (\box ->
             case box of
                 Two a b ->
@@ -134,9 +134,9 @@ boxCodec =
                 Empty ->
                     {- something -}
         )
-        |> variant2 Two aCodec bCodec
-        |> variant1 One aCodec
-        |> variant0 Empty
+        |> variant2 "Two" Two aCodec bCodec
+        |> variant1 "One" One aCodec
+        |> variant0 "Empty" Empty
 ```
 
 As in the record case we'll actually need a final `buildCustom` function to close the pipeline. Again, if you find a clever way to avoid it, do let me know!
@@ -254,7 +254,9 @@ The ingredients are:
 Let's pretend that we are implementing this in JS/another language and let's focus on the encoding part. We start with the record constructor, which we don't need for encoding, let's go on. When we encounter a `field`, we are given the field getter, name and `Codec`, so we can extract the value, name it and turn into a JSON value. If this were JS this is were we would add it to the object we are building, but in Elm there is no facility for adding fields to a `Value` (it could be something different from an object after all!). What do we have in Elm that supports adding? `Dict`s and `List`! For this usecase we never need to get individual items after we add them, so a `List` will do. If we start thinking in terms of adding `(String, Value)` couples to a list we quickly realize that we need to either:
 
 * change the definition of `Codec` to keep this `List` around, but this is messy for every other type beside records or
-* create a different type for record `Codec`s.
+* create a different type for record `Codec`s where the `encoder` produces a `List ( String, Value )`.
+
+The decoder can stay the same (incidentally, this is why [`elm-decode-pipeline`](https://package.elm-lang.org/packages/NoRedInk/elm-decode-pipeline/latest/) doesn't need the `buildObject` step).
 
 Let's go for the secound route (the first one is left as a challenge to the reader).
 
@@ -278,7 +280,7 @@ The ingredients are now:
 * `fieldCodec : { encoder : field -> Value, decoder : Decoder field }`
 * `partialCodec : { encoder : (field -> obj) -> List (String, Value), decoder : Decoder (field -> obj) }`
 
-Ah. Not much better! The problem is that `encoder` is `a -> ...` and `decoder` is `Decoder a`, but while we're building the `Codec`, `a` is a function type, which is not going to work.
+Ah. Not much better! The problem is that `encoder` is `a -> ...` and `decoder` is `Decoder a`, but while we're in the middle of the pipeline, `a` is a function type, which is not going to work.
 
 Let's make ourselves a little more room to work:
 
@@ -296,7 +298,7 @@ field name fieldGetter (ObjectCodec fieldCodec) (ObjectCodec partialCodec) =
         decoder
 ```
 
-Now, if we write `ObjectCodec a a` we end up with the exact same thing, but we have more freedom if we need to.
+Now, if we write `ObjectCodec a a` we end up with the exact same type as before, but we have more freedom if we need to.
 
 The ingredients are at last:
 * `name: String`
@@ -360,10 +362,12 @@ boxCodec aCodec bCodec =
                 Empty ->
                     Debug.todo "zero"
         )
-        |> variant2 Two aCodec bCodec
-        |> variant1 One aCodec
-        |> variant0 Empty
+        |> variant2 "Two" Two aCodec bCodec
+        |> variant1 "One" One aCodec
+        |> variant0 "Empty" Empty
 ```
+
+We're going to represent custom types with objects with two field: `tag`, which is going to contain the variant name, and `args`, which is going to be an array containing the arguments we built the value with.
 
 And let's write a simpler example:
 
@@ -372,6 +376,7 @@ type Box a
     = One a
 
 
+boxCodec : Codec a -> Codec (Box a)
 boxCodec aCodec =
     custom
         (\box ->
@@ -379,9 +384,169 @@ boxCodec aCodec =
                 One x ->
                     Debug.todo "one"
         )
-        |> variant1 One aCodec
+        |> variant1 "One" One aCodec
 ```
 
-The first argument to `custom` is (`Box -> a`), and `variant1` has type `(a -> Box) -> Codec a -> something -> Codec Box`
+The first argument to `custom` is (`Box a -> x`), and `variant1` has type `String -> (a -> Box a) -> Codec a -> something -> Codec (Box a)`
 
-To be completed...
+Again, let's suppose `something` is `Codec` because we are chaining `variantX` calls, so the result of one is the last argument of the next (and again, we'll reach a *doesn't work* conclusion but a priori we don't know that).
+So `variant1` should have type `String -> (a -> Box a) -> Codec a -> Codec somethingElse -> Codec (Box a)` and `custom` should have type `Codec somethingElse`. `somethingElse` should be somehow related to `Box a -> x`.
+
+So:
+* `variant1`: `String -> (a -> Box a) -> Codec a -> Codec somethingElse -> Codec (Box a)`
+* `custom`: `{ encoder : somethingElse -> Value, decoder : Decoder somethingElse}`
+* `aCodec`: `{ encoder : a -> Value, decoder : Decoder a }`
+* `One`: `a -> Box a`
+
+And we want to implement:
+
+```Elm
+variant1 : String -> (a -> Box a) -> Codec a -> Codec somethingElse -> Codec (Box a)
+variant1 name ctor codec partial =
+    build
+        encoder
+        decoder
+```
+
+Where `decoder : Decoder (Box a)` and `encoder : Box a -> Value`. Decoder is easy-ish: if the `tag` is `name` then we use `aCodec.decoder` to decode the single argument from `args` and use `ctor` to turn it into a `Box a`. What if the tag is different, you may ask? Then we'll just fallback to `partial.decoder` in some way.
+
+Now, for the `encoder`, we still have `somethingElse` to fix. Wouldn't it be terribly convenient if it were just `Box a`, so we could use `partial.encoder`?
+Let's see what happens to `partial`'s type:
+* `partial` : `{ encoder : Box a -> Value, decoder: Decoder (Box a) }`.
+
+But there is no way that `custom` can produce a `Decoder (Box a)` on its own!
+
+So, once again, we need a new type!
+
+```Elm
+type CustomCodec match v
+    = CustomCodec
+        { match : match
+        , decoder : Dict String (Decoder v)
+        }
+```
+
+Wait, what?
+
+The `decoder` is simply a dictionary that maps from `tag`s to decoders for that specific variant. That decoder will extract the arguments from an array and build the value, this is reasonable.
+
+`match` will actually contain the lambda with the `case` that pattern matches the custom type! This is not intuitive, let's unravel it!
+
+First things first: we have a `todo` to fill:
+
+```Elm
+...
+boxCodec aCodec =
+    custom
+        (\box ->
+            case box of
+                One x ->
+                    something x
+        )
+...
+```
+
+Where can `something` come from? It could be a generic function defined in the `Codec` module, but we can start by simply adding it as an argument to the lambda. If we later realize that we always pass in the same value we can extract it easily.
+
+```Elm
+...
+boxCodec aCodec =
+    custom
+        (\fone box ->
+            case box of
+                One x ->
+                    fone x
+        )
+...
+```
+
+So now `custom`'s argument has type `(a -> something) -> Box a -> something`. Let's just store it in our `CustomCodec` and be happy.
+
+You might wonder why we put `fone` before `box` and not after it? This is because the type of `custom`'s argument is missing a pair of parentheses, it's actually `(a -> something) -> (Box a -> (something))`, so we can pass it a function of type `a -> something` (like `a -> Value`!) and have it spit out something new (like `Box a -> Value`!).
+
+This was already visible with records, but becomes evident with custom types: we need a type (`CustomCodec`) with two type parameters because we are actually doing two things: we are "consuming" the `match` function, filling its arguments one by one until we arrive to a `Box a -> Value` function, and at the same time we are collecting `Decoder (Box a)` for the various variants. This is somewhat symmetrical to the object case!
+
+```Elm
+custom : match -> CustomCodec match value
+custom match =
+    CustomCodec
+        { match = match
+        , decoder = Dict.empty
+        }
+```
+
+Simple.
+
+Now `variant1` becomes:
+
+
+```Elm
+variant1 : String -> (a -> Box a) -> Codec a -> CustomCodec match (Box a) -> CustomCodec matchButSimpler (Box a)
+variant1 name ctor codec partial =
+    build
+        encoder
+        decoder
+```
+
+But we know that `match` is actually `(a -> something) -> ...`, and we can ask that! We'll fix `something` to `Value` because that is actually what we'll be using.
+
+```Elm
+variant1 :
+    String
+    -> (a -> v)
+    -> Codec a
+    -> CustomCodec ((a -> Value) -> b) v
+    -> CustomCodec b v
+variant1 name ctor m1 (CustomCodec am) =
+    CustomCodec
+        { match =
+            am.match <|
+                \v ->
+                    JE.object
+                        [ ( "tag", JE.string name )
+                        , ( "args"
+                          , JE.list identity
+                                [ encoder m1 v
+                                ]
+                          )
+                        ]
+        , decoder =
+            Dict.insert name
+                (JD.map ctor
+                    (JD.index 0 <| decoder m1)
+                )
+                am.decoder
+        }
+```
+
+We pass to `am.match` (`am` is our partial `CustomCodec`) a function that takes the single argument and puts it inside `args`.
+For the decoder, we simply add it to the `Dict` of decoders that we're building.
+
+The last bit of code is `buildCustom` that closes the circle:
+
+```Elm
+buildCustom : CustomCodec (a -> Value) a -> Codec a
+buildCustom (CustomCodec am) =
+    Codec
+        { encoder = \v -> am.match v
+        , decoder =
+            JD.field "tag" JD.string
+                |> JD.andThen
+                    (\tag ->
+                        case Dict.get tag am.decoder of
+                            Nothing ->
+                                JD.fail <| "tag " ++ tag ++ "did not match"
+
+                            Just dec ->
+                                JD.field "args" dec
+                    )
+        }
+```
+
+`am.match` is fully built by now, so we can just use it. To decode we extract the `tag` `andThen` we use the specific decoder for the arguments.
+
+## Epilogue ##
+
+I hope that this post helped you make more sense of the types inside `elm-codec`. I intend to continue publishing posts in the "Advanced Elm" spirit, and I think I'll talk about either crazy compile-time checking of tree/graph structure or writing a compiler-checked `modBy`. Let me know what would you like to see!
+
+Please send me feedback via Slack, Discourse or e-mail!
