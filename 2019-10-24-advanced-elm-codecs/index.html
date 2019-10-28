@@ -1,52 +1,75 @@
 <!doctype html><html><head><title>Advanced Elm #1: Codecs | Ground Level Magic</title><meta charset="utf-8"><script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.15.1/highlight.min.js"></script><script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.15.1/languages/elm.min.js"></script><script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.15.1/languages/haskell.min.js"></script><script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.15.1/languages/bash.min.js"></script><script>hljs.initHighlightingOnLoad();</script><link href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.15.1/styles/default.min.css" rel="stylesheet" type="text/css"><link href="//fonts.googleapis.com/css?family=Open+Sans|Proza+Libre|Fira+Code" rel="stylesheet" type="text/css"></head><body><div class="header-logo"><img alt="miniBill's blog" src="/img/logo.png" width="100"></div><div class="navigation"><ul><li><a href="/posts">Posts</a></li><li><a href="/contact">Contact</a></li></ul></div><div class="sidebar"></div><div class="sidebar2"></div><div class="content"><h1>Advanced Elm #1: Codecs</h1><div class="post-metadata"><span>2019-10-24</span><span>•</span><a href="/tags/elm">elm</a><a href="/tags/design">design</a><a href="/tags/advanced_elm">advanced_elm</a></div><div class="markdown"><h2 id="introduction">Introduction</h2>
 <p><em>Advanced Elm is a project to explore some of the more advanced corners of the Elm language.</em></p>
-<p>I have some objective for Advanced Elm:</p>
+<p>I have some objectives for Advanced Elm:</p>
 <ol>
 <li>showing that Elm, while simple and perfect for beginners, is powerful enough for a lot of advanced scenarios,</li>
 <li>trying to unravel how to use advanced language features like phantom types and extensible records,</li>
-<li>trying to shed some light on how I come up with the types, and the APIs.</li>
+<li>trying to shed some light on how I come up with complex types and simple APIs.</li>
 </ol>
-<p>In this post I’ll explain how I write libraries that use difficult types, using <a href="https://package.elm-lang.org/packages/miniBill/elm-codec/latest"><code>elm-codec</code></a> as an example.</p>
-<p>Rather than explaining how the current code works I’ll reimplement it from scratch to emphasize the design process.</p>
+<p>In this post I’ll explain how I approach writing libraries that use complex types, using <a href="https://package.elm-lang.org/packages/miniBill/elm-codec/latest"><code>elm-codec</code></a> as an example.</p>
+<p>Rather than explaining how the current code works I’ll reimplement (parts of) it from scratch to emphasize the design process.</p>
 <h3 id="-elm-codec-"><code>elm-codec</code></h3>
 <p><code>elm-codec</code> is a package for defining JSON encoder/decoder pairs.
-It (almost, we’ll see why) guarantees that the encoders and decoders are actually one the inverse of the other, reduces boilerplate and supports custom types.</p>
+It (mostly) guarantees that the encoders and decoders are actually one the inverse of the other, reduces boilerplate and supports custom types.</p>
+<p>It guarantees the correspondance between encoder and decoder by allowing you to define them at the same time, and having an API that makes the compiler help you as much as possible.</p>
+<p>A <code>Codec a</code> is a pair of <code>a -&gt; Value</code>, <code>Decoder a</code> values, and you use it like you would normally use those from the <code>elm/json</code> package.</p>
+<pre><code class="lang-Elm">import Codec exposing (Codec, Value)
+
+codec : Codec (List Int)
+codec =
+    Codec.list Codec.int
+
+encode : List Int -&gt; Value
+encode list =
+    Codec.encoder codec list
+
+decodeString : String -&gt; Result Codec.Error (List Int)
+decodeString s =
+    Codec.decodeString codec s
+</code></pre>
 <h2 id="antophilia">Antophilia</h2>
 <p>I’ll usually start the design process from an API, and I’ll try to create the best API that I think is feasible within the language.</p>
-<p>We’ll have a <code>Codec a</code> type for a pair of <code>a -&gt; Value</code>, <code>Decoder a</code> values. When in doubt, start with an opaque type, there’s always time to expose more in a point release (if you instead want to expose less, that’s a breaking change).</p>
+<p>How should a <code>Codec</code> look like?</p>
+<ul>
+<li>For basic types, we’ll just follow the <code>elm/json</code> API, so <code>Codec.int</code>, <code>Codec.bool</code>, <code>Codec.string</code>, …</li>
+<li>for standard structures (<code>Dict</code>, <code>List</code>, <code>Set</code>, …) we’ll again just have <code>Codec.list someCodec</code>, <code>Codec.set someCodec</code>, …</li>
+<li>for records and custom types, we’ll try to create a pipeline API in the spirit of <a href="https://package.elm-lang.org/packages/elm/parser/latest/"><code>elm/parser</code></a> or <a href="https://package.elm-lang.org/packages/NoRedInk/elm-decode-pipeline/latest/"><code>elm-decode-pipeline</code></a> (always look for inspiration in commonly used libraries, they’ve put a lot of tought into API design).</li>
+</ul>
+<p>We’ll have a <code>Codec a</code> opaque type for a pair of <code>a -&gt; Value</code>, <code>Decoder a</code> values. When in doubt, start with an opaque type. There’s always time to expose more in a point release if needed, if you instead want to expose less that’s a breaking change!</p>
 <p>Let’s write the simplest thing that could possibly work:</p>
 <pre><code>type Codec a
     = Codec
         { encoder : a -&gt; Value
         , decoder : Decoder a
         }
-</code></pre><p>This is actually the definition of a <code>Codec a</code> in <code>elm-codec</code>!</p>
+</code></pre><p>This is the actual the definition of a <code>Codec a</code> in <code>elm-codec</code>, so we’re done!</p>
 <h3 id="records">Records</h3>
-<p>Records are a bit more interesting.</p>
+<p>While for basic types and standard structures we can create a simple API just following the <code>elm/json</code> one, records require us to write something different.</p>
 <p>Let’s start thinking about what the API could be.</p>
 <p>We will certainly need:</p>
 <ol>
-<li>something to build a new record;</li>
-<li>something to get the fields’ value from an existing record;</li>
+<li>something to build a new record from the fields’ values;</li>
+<li>something to get the fields’ values from an existing record;</li>
 <li>the names of the fields (because we want to produce a nice JSON object);</li>
 <li>codecs for the fields.</li>
 </ol>
 <p>The first point is something we need once for each record, the last three are once per field. Every type alias (and records will often be type aliases) automatically creates a function to build a record of that type, so the alias name could be what we need for point 1.</p>
 <p>To get fields’ values we can use Elm’s dot notation <code>.field</code>, and names can be simple strings.</p>
-<p>In the spirit of <a href="https://package.elm-lang.org/packages/elm/parser/latest/"><code>elm/parser</code></a> or <a href="https://package.elm-lang.org/packages/NoRedInk/elm-decode-pipeline/latest/"><code>elm-decode-pipeline</code></a> (always look for inspiration in commonly used libraries, they’ve often put a lot of tought into API design) we’ll try to create a pipeline API:</p>
+<p>Let’s try and write the pipeline API:</p>
 <pre><code class="lang-Elm">type alias Point =
     { x : Float
     , y : Float
     }
 
 
+pointCodec : Codec Point
 pointCodec =
     object Point
         |&gt; field "x" .x Codec.float
         |&gt; field "y" .y Codec.float
 </code></pre>
-<p>Turns out we can <em>almost</em> implement this API. The only difference will be that after all the <code>field</code> lines, one needs a <code>buildObject</code> for technical reasons. We <em>could</em> implement this exact API but it would complicate the whole implementation for negligible gains.</p>
-<p>If you want a challenge you can try do it. Hint: change the <code>encoder</code> inside the opaque type from <code>a -&gt; Value</code> to <code>a -&gt; (Value, List (String, Value))</code> and use the second item in the tuple to rebuild the current <code>Value</code> every time you pass through a <code>field</code>. This is inefficent, and horrible and means that every other Codec has to produce an useless empty list. Also, as we’ll see later, the <code>Codec a</code> type might not be enough for a record decoder while we’re building it.</p>
+<p>Turns out we can <em>almost</em> implement this API. The only difference will be that after all the <code>field</code> lines, one needs a <code>buildObject</code> for technical reasons. We <em>could</em> try implementing this exact API but I think it would inevitably complicate the whole implementation for negligible gains.</p>
+<p>If you want a challenge you can try do it. Hint: change the <code>encoder</code> inside the opaque type from <code>a -&gt; Value</code> to <code>a -&gt; (Value, List (String, Value))</code> and use the second item in the tuple to rebuild the current <code>Value</code> every time you pass through a <code>field</code>. This is inefficent, and horrible and means that every other Codec has to produce an useless empty list. Also, as we’ll see later, the <code>Codec a</code> type might not be enough for a record decoder while we’re building it so you might need to expose the <code>Codec</code> type alias and create an <code>ObjectCodec a b</code> alias anyway and now you’ve got your users confused by the <code>List (String, Value)</code> that they see in every codec, and then you get dogs and cats living toghether, and… just don’t do it.</p>
 <h3 id="custom-types">Custom types</h3>
 <p>This is the hardest part, and where <code>elm-codec</code> is novel compared to, for example <a href="https://old.elm.dmy.fr/packages/jamesmacaulay/elm-json-bidirectional/1.1.0/"><code>jamesmacaulay/elm-json-bidirectional</code></a> or <a href="https://package.elm-lang.org/packages/prozacchiwawa/elm-json-codec/latest/"><code>prozacchiwawa/elm-json-codec</code></a>. This is also the reason I published <code>elm-codec</code> in the first place: the other two packages already existed, and are fine for basic types and records, but have low support for custom types.</p>
 <p>We will need:</p>
@@ -56,7 +79,7 @@ pointCodec =
 <li>the arguments’ codecs;</li>
 <li>a way to extract the variant name and arguments from a value of the custom type.</li>
 </ol>
-<p>The first three are trivial, the interesting point if the last one! We basically have two possible designes:</p>
+<p>The first three are trivial, the interesting point if the last one! We basically have two possible designs:</p>
 <h4 id="partial-pattern-matching">Partial pattern matching</h4>
 <p>This is probably the simplest idea, and possibly (haven’t tried) the easiest implementation:</p>
 <pre><code class="lang-Elm">type Box a b
@@ -65,18 +88,20 @@ pointCodec =
     | Empty
 
 
-boxCodec =
+boxCodec : Codec a -&gt; Codec b -&gt; Codec (Box a b)
+boxCodec aCodec bCodec =
     {- something here -}
     variant2 "Two" Two
         (\box -&gt;
             case box of
                 Two a b -&gt;
-                    Just ( a, b )
+                    Just [ a, b ]
 
                 _ -&gt;
                     Nothing
         )
         aCodec bCodec
+    {- something else here -}
 </code></pre>
 <p>This would work, but it doesn’t use the compiler to help the user! There is no way to check that the user has written a matcher for every variant.</p>
 <h4 id="-case-"><code>case</code></h4>
@@ -120,6 +145,7 @@ bool = build JE.bool JD.bool
 int = build JE.int JD.int
 float = build JE.float JD.float
 </code></pre>
+<p><code>build</code> is just a compact way to create a <code>Codec</code>.</p>
 <p>The only midly interesting one is for <code>char</code>:</p>
 <pre><code class="lang-Elm">char =
     build
@@ -136,11 +162,11 @@ float = build JE.float JD.float
                 )
         )
 </code></pre>
-<p>We simply work around the fact that JSON has no <code>Char</code> type.</p>
+<p>We simply work around the fact that JSON has no <code>Char</code> type by storing it as a string and then on decode checking that it’s a single char.</p>
 <h3 id="dict-set-list-">Dict, Set, List, …</h3>
-<p>Those are absolutely obvious too. You can have a look at <code>elm-codec</code>‘s source if you’re curious.</p>
+<p>Those follow from <code>elm/json</code> primitives, you can have a look at <a href="https://github.com/miniBill/elm-codec/blob/1.2.0/src/Codec.elm#L254-L283">the source code</a> to see how they work.</p>
 <h3 id="records">Records</h3>
-<p>Let’s remember the API we’re aiming at:</p>
+<p>Let’s remember the API we’re aiming for:</p>
 <pre><code class="lang-Elm">type alias Point =
     { x : Float
     , y : Float
@@ -159,6 +185,7 @@ pointCodec =
     }
 
 
+boxCodec : Codec Box
 boxCodec =
     object Box
         |&gt; field "x" .x Codec.int
@@ -169,8 +196,11 @@ boxCodec =
 <li><code>boxCodec</code> has type <code>Codec Box</code></li>
 </ul>
 <p>So <code>field "x" .x Codec.int</code> is associated with <code>Int</code> and should go from <code>Something (Int -&gt; Box)</code> to <code>Codec Box</code>.
-It looks like <code>field</code>‘s type is <code>field : String -&gt; (box -&gt; field) -&gt; Codec field -&gt; Something (field -&gt; Box) -&gt; Codec Box</code>.
-Seems promising.</p>
+It looks like <code>field</code>‘s type is:</p>
+<ul>
+<li><code>field</code>: <code>String -&gt; (box -&gt; field) -&gt; Codec field -&gt; Something (field -&gt; Box) -&gt; Codec Box</code>.</li>
+</ul>
+<p>Seems promising.</p>
 <p>Let’s go back to <code>Point</code>.</p>
 <p>If we’re right <code>field "y" .y Codec.float</code> should go from <code>Something (Float -&gt; Point)</code> to <code>Codec Point</code>, and <code>object Point</code> should be <code>Something (Float -&gt; Float -&gt; Box)</code> and <code>field "x" .x Codec.float</code> goes from <code>Something (Float -&gt; Float -&gt; Point)</code> to <code>Codec (Float -&gt; Point)</code> so <code>Something</code> is <code>Codec</code>!
 This will actually turn out to be false, but we’re almost there.</p>
@@ -184,19 +214,24 @@ field name fieldGetter (Codec fieldCodec) (Codec partialCodec) =
 <p>Let’s reason about types! Remember, highly generic code where the types are mostly type variables is like Sudoku, you can often understand what you need to write it just by looking at all the types.</p>
 <p>The ingredients are:</p>
 <ul>
-<li><code>name: String</code></li>
-<li><code>fieldGetter : obj -&gt; field</code></li>
-<li><code>fieldCodec : { encoder : field -&gt; Value, decoder : Decoder field }</code></li>
-<li><code>partialCodec : { encoder : (field -&gt; obj) -&gt; Value, decoder : Decoder (field -&gt; obj) }</code></li>
+<li><code>name</code>: <code>String</code>,</li>
+<li><code>fieldGetter</code>: <code>obj -&gt; field</code>,</li>
+<li><code>fieldCodec</code>: <code>{ encoder : field -&gt; Value, decoder : Decoder field }</code>,</li>
+<li><code>partialCodec</code>:<pre><code class="lang-Elm">{
+  encoder : (field -&gt; obj) -&gt; Value,
+  decoder : Decoder (field -&gt; obj)
+}
+</code></pre>
+</li>
 </ul>
-<p><code>decoder</code>‘s type is <code>Decoder obj</code>, and if we look at the ingredients this has the exact same type of <code>Json.Decode.map2 (\f v -&gt; f v) partialCodec.decoder fieldCodec.decoder</code>! The actual correct implementation is <code>Json.Decode.map2 (\f v -&gt; f v) partialCodec.decoder (Json.Decode.field name fieldCodec.decoder)</code> because we need to extract the value from the JSON object’s field.</p>
+<p><code>decoder</code>‘s type is <code>Decoder obj</code>, and if we look at the ingredients this has the exact same type as <code>Json.Decode.map2 (\f v -&gt; f v) partialCodec.decoder fieldCodec.decoder</code>! The actual correct implementation is <code>Json.Decode.map2 (\f v -&gt; f v) partialCodec.decoder (Json.Decode.field name fieldCodec.decoder)</code> because we need to extract the value from the JSON object’s field.</p>
 <p><code>encoder</code>‘s type is <code>obj -&gt; Value</code>, and we could write <code>fieldCodec.encoder &lt;&lt; fieldGetter</code> but it’s quite evident that we would be dropping all the information from our record except from that single field so it can’t be right, we need to use <code>partialCodec.encoder</code>, but it has a strange type, how can it convert a function <code>field -&gt; obj</code> into a <code>Value</code>? Something is fishy!</p>
 <p>Let’s pretend that we are implementing this in JS/another language and let’s focus on the encoding part. We start with the record constructor, which we don’t need for encoding, let’s go on. When we encounter a <code>field</code>, we are given the field getter, name and <code>Codec</code>, so we can extract the value, name it and turn into a JSON value. If this were JS this is were we would add it to the object we are building, but in Elm there is no facility for adding fields to a <code>Value</code> (it could be something different from an object after all!). What do we have in Elm that supports adding? <code>Dict</code>s and <code>List</code>! For this usecase we never need to get individual items after we add them, so a <code>List</code> will do. If we start thinking in terms of adding <code>(String, Value)</code> couples to a list we quickly realize that we need to either:</p>
 <ul>
 <li>change the definition of <code>Codec</code> to keep this <code>List</code> around, but this is messy for every other type beside records or</li>
 <li>create a different type for record <code>Codec</code>s where the <code>encoder</code> produces a <code>List ( String, Value )</code>.</li>
 </ul>
-<p>The decoder can stay the same (incidentally, this is why <a href="https://package.elm-lang.org/packages/NoRedInk/elm-decode-pipeline/latest/"><code>elm-decode-pipeline</code></a> doesn’t need the <code>buildObject</code> step).</p>
+<p>The decoder can stay the same (incidentally, this is why <a href="https://package.elm-lang.org/packages/NoRedInk/elm-decode-pipeline/latest/"><code>elm-decode-pipeline</code></a> doesn’t need the <code>buildObject</code> step, because you can use a plain <code>Decoder</code> for the decoding part).</p>
 <p>Let’s go for the secound route (the first one is left as a challenge to the reader).</p>
 <pre><code class="lang-Elm">type ObjectCodec a
     = ObjectCodec
@@ -210,15 +245,21 @@ field name fieldGetter (ObjectCodec fieldCodec) (ObjectCodec partialCodec) =
         encoder
         decoder
 </code></pre>
+<p>We defined a new type alias for records’ codecs.</p>
 <p>The ingredients are now:</p>
 <ul>
-<li><code>name: String</code></li>
-<li><code>fieldGetter : obj -&gt; field</code></li>
-<li><code>fieldCodec : { encoder : field -&gt; Value, decoder : Decoder field }</code></li>
-<li><code>partialCodec : { encoder : (field -&gt; obj) -&gt; List (String, Value), decoder : Decoder (field -&gt; obj) }</code></li>
+<li><code>name</code>: <code>String</code>,</li>
+<li><code>fieldGetter</code>: <code>obj -&gt; field</code>,</li>
+<li><code>fieldCodec</code>: <code>{ encoder : field -&gt; Value, decoder : Decoder field }</code>,</li>
+<li><code>partialCodec</code>:<pre><code class="lang-Elm">{
+  encoder : (field -&gt; obj) -&gt; List (String, Value),
+  decoder : Decoder (field -&gt; obj)
+}
+</code></pre>
+</li>
 </ul>
-<p>Ah. Not much better! The problem is that <code>encoder</code> is <code>a -&gt; ...</code> and <code>decoder</code> is <code>Decoder a</code>, but while we’re in the middle of the pipeline, <code>a</code> is a function type, which is not going to work.</p>
-<p>Let’s make ourselves a little more room to work:</p>
+<p>Ah. Not much better! The problem is that <code>partialCodec.encoder</code> is <code>x -&gt; ...</code> and <code>partialCodec.decoder</code> is <code>Decoder x</code>, but while we’re in the middle of the pipeline, <code>x</code> is a function type, which is not going to work.</p>
+<p>Let’s make ourselves a little more room to work, by making the type more generic:</p>
 <pre><code class="lang-Elm">type ObjectCodec a b
     = ObjectCodec
         { encoder : a -&gt; List ( String, Value )
@@ -231,23 +272,35 @@ field name fieldGetter (ObjectCodec fieldCodec) (ObjectCodec partialCodec) =
         encoder
         decoder
 </code></pre>
+<p>We just changed the type of <code>encoder</code> to take an argument of a different type from the <code>decoder</code> one.</p>
 <p>Now, if we write <code>ObjectCodec a a</code> we end up with the exact same type as before, but we have more freedom if we need to.</p>
 <p>The ingredients are at last:</p>
 <ul>
-<li><code>name: String</code></li>
-<li><code>fieldGetter : obj -&gt; field</code></li>
-<li><code>fieldCodec : { encoder : field -&gt; Value, decoder : Decoder field }</code></li>
-<li><code>partialCodec : { encoder : something1 -&gt; List (String, Value), decoder : Decoder (field -&gt; obj) }</code></li>
+<li><code>name</code>: <code>String</code>,</li>
+<li><code>fieldGetter</code>: <code>obj -&gt; field</code>,</li>
+<li><code>fieldCodec</code>: <code>{ encoder : field -&gt; Value, decoder : Decoder field }</code>,</li>
+<li><code>partialCodec</code>:<pre><code class="lang-Elm">{
+  encoder : something1 -&gt; List (String, Value),
+  decoder : Decoder (field -&gt; obj)
+}
+</code></pre>
+</li>
 </ul>
-<p>And <code>encoder</code> is <code>something2 -&gt; List (String, Value)</code>. We have <code>obj -&gt; field</code> to combine with <code>field -&gt; Value</code>, so <code>something2</code> should allow us to get an <code>obj</code> out somehow. We also want to use <code>partialCodec.encoder</code>, so <code>something1</code> should also allow us to get an <code>obj</code> out. What’s the simplest thing? <code>something1 = something2 = obj</code>!</p>
+<p>And <code>encoder</code> is <code>something2 -&gt; List (String, Value)</code>.</p>
+<p>We have <code>fieldGetter : obj -&gt; field</code> to combine with <code>fieldCodec.encoder : field -&gt; Value</code>, so <code>something2</code> should allow us to get an <code>obj</code> out of it somehow. We also want to use <code>partialCodec.encoder</code>, so <code>something1</code> should allow us to feed it with an <code>obj</code> somehow. What’s the simplest thing that works? <code>something1 = something2 = obj</code>!</p>
 <p>Let’s review:</p>
 <ul>
-<li><code>name: String</code></li>
-<li><code>fieldGetter : obj -&gt; field</code></li>
-<li><code>fieldCodec : { encoder : field -&gt; Value, decoder : Decoder field }</code></li>
-<li><code>partialCodec : { encoder : obj -&gt; List (String, Value), decoder : Decoder (field -&gt; obj) }</code></li>
+<li><code>name</code>: <code>String</code>,</li>
+<li><code>fieldGetter</code>: <code>obj -&gt; field</code>,</li>
+<li><code>fieldCodec</code>: <code>{ encoder : field -&gt; Value, decoder : Decoder field }</code>,</li>
+<li><code>partialCodec</code>:<pre><code class="lang-Elm">{
+  encoder : obj -&gt; List (String, Value),
+  decoder : Decoder (field -&gt; obj)
+}
+</code></pre>
+</li>
 </ul>
-<p>And we want to create a <code>obj -&gt; List (String Value)</code>. This is now trivial: <code>\v -&gt; ( name, fieldCodec.encoder &lt;| fieldGetter v ) :: partialCodec.encoder v</code>.</p>
+<p>And we want to create an <code>obj -&gt; List (String, Value)</code>. This is now simple: <code>\v -&gt; ( name, fieldCodec.encoder &lt;| fieldGetter v ) :: partialCodec.encoder v</code>.</p>
 <p>So what happens in the <code>Point</code> case? <code>object</code> must return <code>ObjectCodec Point (Float -&gt; Float -&gt; Point)</code>, so it’s simply:</p>
 <pre><code class="lang-Elm">object ctor =
     ObjectCodec
@@ -255,7 +308,8 @@ field name fieldGetter (ObjectCodec fieldCodec) (ObjectCodec partialCodec) =
         , decoder = Json.Decode.succeed ctor
         }
 </code></pre>
-<p>And the final value in the pipeline is an <code>ObjectCodec Point Point</code> which suggest that</p>
+<p>The encoder returns an empty list: we don’t have any field yet. The decoder returns the field constructor: we’ll fill it with fields in the pipeline.</p>
+<p>And the final value in the pipeline is an <code>ObjectCodec Point Point</code> which suggest that <code>buildObject</code> is:</p>
 <pre><code class="lang-Elm">buildObject : ObjectCodec a a -&gt; Codec a
 buildObject (ObjectCodec om) =
     Codec
@@ -272,6 +326,7 @@ buildObject (ObjectCodec om) =
     | Empty
 
 
+boxCodec : Codec a -&gt; Codec b -&gt; Codec (Box a b)
 boxCodec aCodec bCodec =
     custom
         (\box -&gt;
@@ -289,7 +344,7 @@ boxCodec aCodec bCodec =
         |&gt; variant1 "One" One aCodec
         |&gt; variant0 "Empty" Empty
 </code></pre>
-<p>We’re going to represent custom types with objects with two field: <code>tag</code>, which is going to contain the variant name, and <code>args</code>, which is going to be an array containing the arguments we built the value with.</p>
+<p>We’re going to represent custom types with JSON objects with two field: <code>tag</code>, which is going to contain the variant name, and <code>args</code>, which is going to be an array containing the arguments we built the value with.</p>
 <p>And let’s write a simpler example:</p>
 <pre><code class="lang-Elm">type Box a
     = One a
@@ -305,15 +360,19 @@ boxCodec aCodec =
         )
         |&gt; variant1 "One" One aCodec
 </code></pre>
-<p>The first argument to <code>custom</code> is (<code>Box a -&gt; x</code>), and <code>variant1</code> has type <code>String -&gt; (a -&gt; Box a) -&gt; Codec a -&gt; something -&gt; Codec (Box a)</code></p>
-<p>Again, let’s suppose <code>something</code> is <code>Codec</code> because we are chaining <code>variantX</code> calls, so the result of one is the last argument of the next (and again, we’ll reach a <em>doesn’t work</em> conclusion but a priori we don’t know that).
-So <code>variant1</code> should have type <code>String -&gt; (a -&gt; Box a) -&gt; Codec a -&gt; Codec somethingElse -&gt; Codec (Box a)</code> and <code>custom</code> should have type <code>Codec somethingElse</code>. <code>somethingElse</code> should be somehow related to <code>Box a -&gt; x</code>.</p>
+<p>The first argument to <code>custom</code> is (<code>Box a -&gt; x</code>), and <code>variant1</code> has type <code>String -&gt; (a -&gt; Box a) -&gt; Codec a -&gt; something -&gt; Codec (Box a)</code>.</p>
+<p>Again, let’s suppose <code>something</code> is <code>Codec</code> because we are chaining <code>variantX</code> calls, so the result of one call is the last argument for the next call (and again, we’ll reach a <em>doesn’t work</em> conclusion but a priori we don’t know that).
+So <code>variant1</code> should have type:</p>
+<ul>
+<li><code>String -&gt; (a -&gt; Box a) -&gt; Codec a -&gt; Codec somethingElse -&gt; Codec (Box a)</code></li>
+</ul>
+<p>and <code>custom</code> should have type <code>Codec somethingElse</code>. <code>somethingElse</code> should be somehow related to <code>Box a -&gt; x</code>.</p>
 <p>So:</p>
 <ul>
-<li><code>variant1</code>: <code>String -&gt; (a -&gt; Box a) -&gt; Codec a -&gt; Codec somethingElse -&gt; Codec (Box a)</code></li>
-<li><code>custom</code>: <code>{ encoder : somethingElse -&gt; Value, decoder : Decoder somethingElse}</code></li>
-<li><code>aCodec</code>: <code>{ encoder : a -&gt; Value, decoder : Decoder a }</code></li>
-<li><code>One</code>: <code>a -&gt; Box a</code></li>
+<li><code>variant1</code>: <code>String -&gt; (a -&gt; Box a) -&gt; Codec a -&gt; Codec somethingElse -&gt; Codec (Box a)</code>.</li>
+<li><code>custom</code>: <code>{ encoder : somethingElse -&gt; Value, decoder : Decoder somethingElse}</code>.</li>
+<li><code>aCodec</code>: <code>{ encoder : a -&gt; Value, decoder : Decoder a }</code>.</li>
+<li><code>One</code>: <code>a -&gt; Box a</code>.</li>
 </ul>
 <p>And we want to implement:</p>
 <pre><code class="lang-Elm">variant1 : String -&gt; (a -&gt; Box a) -&gt; Codec a -&gt; Codec somethingElse -&gt; Codec (Box a)
@@ -328,17 +387,17 @@ Let’s see what happens to <code>partial</code>‘s type:</p>
 <ul>
 <li><code>partial</code> : <code>{ encoder : Box a -&gt; Value, decoder: Decoder (Box a) }</code>.</li>
 </ul>
-<p>But there is no way that <code>custom</code> can produce a <code>Decoder (Box a)</code> on its own!</p>
-<p>So, once again, we need a new type!</p>
+<p>But there is no way that <code>custom</code> can produce a <code>Decoder (Box a)</code> on its own! Except if it always failed, but that’s not interesting.</p>
+<p>So, once again, we need a new type with some more flexibility!</p>
 <pre><code class="lang-Elm">type CustomCodec match v
     = CustomCodec
         { match : match
         , decoder : Dict String (Decoder v)
         }
 </code></pre>
-<p>Wait, what?</p>
-<p>The <code>decoder</code> is simply a dictionary that maps from <code>tag</code>s to decoders for that specific variant. That decoder will extract the arguments from an array and build the value, this is reasonable.</p>
-<p><code>match</code> will actually contain the lambda with the <code>case</code> that pattern matches the custom type! This is not intuitive, let’s unravel it!</p>
+<p>Wait, where does <code>match</code> come from? Why a <code>Dict</code> for <code>decoder</code>?</p>
+<p>The <code>decoder</code> is simply a dictionary that maps from <code>tag</code>s to decoders for that specific variant. That decoder will extract the arguments from an array and build the value. This is simple and works well.</p>
+<p><code>match</code> will actually contain the lambda with the <code>case</code> that pattern matches and deconstructs the custom type! This is not intuitive, let’s unravel it!</p>
 <p>First things first: we have a <code>todo</code> to fill:</p>
 <pre><code class="lang-Elm">...
 boxCodec aCodec =
@@ -350,6 +409,7 @@ boxCodec aCodec =
         )
 ...
 </code></pre>
+<p>We’ve added a function <code>something</code> that will use the argument that we just extracted.</p>
 <p>Where can <code>something</code> come from? It could be a generic function defined in the <code>Codec</code> module, but we can start by simply adding it as an argument to the lambda. If we later realize that we always pass in the same value we can extract it easily.</p>
 <pre><code class="lang-Elm">...
 boxCodec aCodec =
@@ -362,8 +422,8 @@ boxCodec aCodec =
 ...
 </code></pre>
 <p>So now <code>custom</code>‘s argument has type <code>(a -&gt; something) -&gt; Box a -&gt; something</code>. Let’s just store it in our <code>CustomCodec</code> and be happy.</p>
-<p>You might wonder why we put <code>fone</code> before <code>box</code> and not after it? This is because the type of <code>custom</code>‘s argument is missing a pair of parentheses, it’s actually <code>(a -&gt; something) -&gt; (Box a -&gt; (something))</code>, so we can pass it a function of type <code>a -&gt; something</code> (like <code>a -&gt; Value</code>!) and have it spit out something new (like <code>Box a -&gt; Value</code>!).</p>
-<p>This was already visible with records, but becomes evident with custom types: we need a type (<code>CustomCodec</code>) with two type parameters because we are actually doing two things: we are “consuming” the <code>match</code> function, filling its arguments one by one until we arrive to a <code>Box a -&gt; Value</code> function, and at the same time we are collecting <code>Decoder (Box a)</code> for the various variants. This is somewhat symmetrical to the object case!</p>
+<p>You might wonder why we put <code>fone</code> before <code>box</code> and not after it? This is because the type of <code>custom</code>‘s argument is missing a pair of parentheses, it’s actually <code>(a -&gt; something) -&gt; (Box a -&gt; (something))</code>, it’s a function that takes an <code>a -&gt; something</code> and returns a new function. This means that we can pass it a function of type <code>a -&gt; something</code> (like <code>a -&gt; Value</code>!) and have it spit out a new function (like <code>Box a -&gt; Value</code>!).</p>
+<p>This was already visible with records, but becomes evident with custom types: the reason why we need a type (<code>CustomCodec</code>) with two type parameters is because we are actually doing two things: we are “consuming” the <code>match</code> function’s type, by filling its arguments one by one until we arrive to a <code>Box a -&gt; Value</code> function, and at the same time we are collecting <code>Decoder (Box a)</code>s for the various variants. This is somewhat symmetrical to the records case, in which we were filling the record alias, for the decoder, and collecting <code>(String, Value)</code>s for the encoder. There is a <a href="https://bartoszmilewski.com/2015/01/07/products-and-coproducts/">deep reason</a> for this symmetry, but it’s waaaay outside the scope here.</p>
 <pre><code class="lang-Elm">custom : match -&gt; CustomCodec match value
 custom match =
     CustomCodec
@@ -379,7 +439,7 @@ variant1 name ctor codec partial =
         encoder
         decoder
 </code></pre>
-<p>But we know that <code>match</code> is actually <code>(a -&gt; something) -&gt; ...</code>, and we can ask that! We’ll fix <code>something</code> to <code>Value</code> because that is actually what we’ll be using.</p>
+<p>But we know that <code>match</code> is actually <code>(a -&gt; something) -&gt; ...</code>, and we can tell the compiler that! We’ll fix <code>something</code> to <code>Value</code> because that is what we’ll actually be using.</p>
 <pre><code class="lang-Elm">variant1 :
     String
     -&gt; (a -&gt; v)
@@ -431,6 +491,7 @@ buildCustom (CustomCodec am) =
 <h2 id="epilogue">Epilogue</h2>
 <p>I hope that this post helped you make more sense of the types inside <code>elm-codec</code>. I intend to continue publishing posts in the “Advanced Elm” spirit, and I think I’ll talk about either crazy compile-time checking of tree/graph structure or writing a compiler-checked <code>modBy</code>. Let me know what would you like to see!</p>
 <p>Please send me feedback via Slack, Discourse or e-mail!</p>
+<p>A big thank you to Folkert de Vries and Wolfgang Schuster for feedback on the first drafts. The errors are mine alone though!</p>
 </div></div><div class="footer"><img alt="miniBill's blog" src="/img/logo.png" style="float: left; padding-top: 7px" width="75"><div class="link"><a href="https://github.com/miniBill"><svg width="16" height="16" viewbox="0 0 16 16"><path fill="#fff" d="
 M7.999,0.431c-4.285,0-7.76,3.474-7.76,7.761 c0,3.428,2.223,6.337,5.307,7.363c0.388,0.071,0.53-0.168,0.53-0.374c0-0.184-0.007-0.672-0.01-1.32 c-2.159,0.469-2.614-1.04-2.614-1.04c-0.353-0.896-0.862-1.135-0.862-1.135c-0.705-0.481,0.053-0.472,0.053-0.472 c0.779,0.055,1.189,0.8,1.189,0.8c0.692,1.186,1.816,0.843,2.258,0.645c0.071-0.502,0.271-0.843,0.493-1.037 C4.86,11.425,3.049,10.76,3.049,7.786c0-0.847,0.302-1.54,0.799-2.082C3.768,5.507,3.501,4.718,3.924,3.65 c0,0,0.652-0.209,2.134,0.796C6.677,4.273,7.34,4.187,8,4.184c0.659,0.003,1.323,0.089,1.943,0.261 c1.482-1.004,2.132-0.796,2.132-0.796c0.423,1.068,0.157,1.857,0.077,2.054c0.497,0.542,0.798,1.235,0.798,2.082 c0,2.981-1.814,3.637-3.543,3.829c0.279,0.24,0.527,0.713,0.527,1.437c0,1.037-0.01,1.874-0.01,2.129 c0,0.208,0.14,0.449,0.534,0.373c3.081-1.028,5.302-3.935,5.302-7.362C15.76,3.906,12.285,0.431,7.999,0.431z
             "></path></svg></a></div><div class="link"><a href="https://twitter.com/minibill"><svg width="16" height="16" viewbox="0 0 16 16"><path fill="#fff" d="
