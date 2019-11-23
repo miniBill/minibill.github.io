@@ -22,6 +22,7 @@
         "elm",
         "design",
         "advanced_elm",
-        "haskell"
+        "haskell",
+        "math"
     ]
 }

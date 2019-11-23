@@ -1,10 +1,15 @@
-module Styles exposing (styles)
+module Styles exposing (main, styles)
 
 import Css exposing (..)
 import Css.Global exposing (..)
 import Css.Media as Media exposing (..)
 import Html exposing (Html)
 import Html.Styled
+
+
+main : Html msg
+main =
+    Html.text "..."
 
 
 styles : Html msg
