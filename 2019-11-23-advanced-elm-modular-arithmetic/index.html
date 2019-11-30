@@ -1,0 +1,356 @@
+<!doctype html><html><head><title>Advanced Elm #2: Modular arithmetic | Ground Level Magic</title><meta charset="utf-8"><script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.15.1/highlight.min.js"></script><script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.15.1/languages/elm.min.js"></script><script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.15.1/languages/haskell.min.js"></script><script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.15.1/languages/bash.min.js"></script><script>hljs.initHighlightingOnLoad();</script><link href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.15.1/styles/default.min.css" rel="stylesheet" type="text/css"><link href="//fonts.googleapis.com/css?family=Open+Sans|Proza+Libre|Fira+Code" rel="stylesheet" type="text/css"></head><body><div class="header-logo"><img alt="miniBill's blog" src="/img/logo.png" width="100"></div><div class="navigation"><ul><li><a href="/posts">Posts</a></li><li><a href="/contact">Contact</a></li></ul></div><div class="sidebar"></div><div class="sidebar2"></div><div class="content"><h1>Advanced Elm #2: Modular arithmetic</h1><div class="post-metadata"><span>2019-11-23</span><span>•</span><a href="/tags/elm">elm</a><a href="/tags/advanced_elm">advanced_elm</a><a href="/tags/math">math</a></div><div class="markdown"><h2 id="introduction">Introduction</h2>
+<p><em>Advanced Elm is a project to explore some of the more advanced corners of the Elm language.</em></p>
+<p>I have some objectives for Advanced Elm:</p>
+<ol>
+<li>showing that Elm, while simple and perfect for beginners, is powerful enough for a lot of advanced scenarios,</li>
+<li>trying to unravel how to use advanced language features like phantom types and extensible records,</li>
+<li>trying to shed some light on how I come up with complex types and simple APIs.</li>
+</ol>
+<p>In this post I’ll try to answer a seemingly simple question: why do we have to add a default branch when we use <code>case ... of</code> when using <code>modBy n</code> with a fixed <code>n</code>?</p>
+<p>The simple, and sane, answer is that the in Elm we have no way to tell the compiler that the only possible results are <code>1</code>, <code>2</code>, <code>3</code>, … <code>n-1</code>.</p>
+<p>The <a href="https://www.amazon.com/How-Absurd-Scientific-Real-World-Problems/dp/0525537090">How To style</a> answer is that it’s actually possible to write a <code>safeModBy</code> function where we have exactly <code>n</code> branches when we do <code>safeModBy n</code>.</p>
+<p>As with <code>elm-codec</code>, rather than explaining how the current code works I’ll reimplement (parts of) it from scratch to emphasize the design process.</p>
+<p>A word of caution: this is mostly an excuse to play with complex types, the code is not optimized, the API is insane and the idea is bad. It’s still interesting though.</p>
+<h3 id="notation">Notation</h3>
+<p><code>[a, b]</code> = <code>[a, a+1, a+2, ..., b]</code>.</p>
+<h2 id="apis">APIs</h2>
+<p>To have <code>n</code> branches we must convince the compiler that our type has exactly <code>n</code> possible values, “make impossible states impossible” style.</p>
+<p>This immediately rules out <code>Int</code>, because from the compiler point of view it always has “infinite” possible values, we’ll probably need a custom type.</p>
+<p>When the road ahead is unclear it’s often useful to write some examples.</p>
+<p>What are the possible results of <code>modBy n</code>? Let’s reason about small values for <code>n</code>:</p>
+<ul>
+<li><code>x</code> (&lt; 10): a single digit in the <code>[0, x-1]</code> range,</li>
+<li><code>xy</code> (&lt; 100): the first digit of the result is in the <code>[0, x]</code>/<code>[0, x-1]</code> range (<code>x-1</code> if <code>y</code> is <code>0</code>, <code>x</code> otherwise), the second digit is in the <code>[0,y-1]</code> range if the first digit is <code>x</code>, in the <code>[0,9]</code> range otherwise.</li>
+<li><code>xzy</code> (&lt; 1000): the first digit of the result is in the <code>[0, x]</code>/<code>[0, x-1]</code> range (see above), the second digit is in the <code>[0,y-1]</code> range if the first digit is <code>x</code>, in the <code>[0,9]</code> range otherwise, the third digit is in the <code>[0,z-1]</code> range if the first digit is <code>x</code> and the second digit is <code>y</code>, in the <code>[0,9]</code> range otherwise.</li>
+<li>…</li>
+</ul>
+<p>From this we can understand that:</p>
+<ol>
+<li>the shape is regular, but a bit different from what we’re used to,</li>
+<li>considering that the shape (hence, the type) of the result depends on the value we pass to <code>modBy</code>, we will not be able to use an <code>Int</code> as argument.</li>
+</ol>
+<h3 id="digits">Digits</h3>
+<p>We will need at the very least a different type for every single digit, because every possible <code>modBy</code> with a single digit number will need a different type (unless we create an API that uses Peano-style numbers, but it would be unwieldy and horrible).</p>
+<p>Let’s try and write some (hypotetical) code.</p>
+<pre><code class="lang-Elm">type D0 = D0
+type D1 = D0 | D1
+type D2 = D0 | D1 | D2
+...
+type D9 = D0 | D1 | D2 | D3 | D4 | D5 | D6 | D7 | D8 | D9
+</code></pre>
+<p>This is not legal code! Every variant needs a different name. I don’t have any ideas that don’t produce decent names, the least-bad I’ve found is:</p>
+<pre><code class="lang-Elm">type D0 = D0_0
+type D1 = D0_1 | D1_1
+type D2 = D0_2 | D1_2 | D2_2
+...
+type D9 = D0_9 | D1_9 | D2_9 | D3_9 | D4_9 | D5_9 | D6_9 | D7_9 | D8_9 | D9_9
+</code></pre>
+<p>For two digits numbers we cannot create a type like <code>type TwoDigits a b = TD a b</code>, because we need the second digit to depend on the value of the first one. This seems to point toward dependent types, which Elm doesn’t have, but it’s actually doable within Elm’s typesystem.</p>
+<p>To keep the code a bit more compact, from now on I’ll use base 4 instead of base 10. Mutatis mutandis everything will work for base 10.</p>
+<p>Let’s write some pseudo-Elm for the type of two digit numbers up to <code>22</code> (in base 4, it would be <code>10</code> in base 10).</p>
+<pre><code class="lang-Elm">type UpTo22
+    =   0 |   1 |   2 |   3
+    | 1 0 | 1 1 | 1 2 | 1 3
+    | 2 0 | 2 1 | 2 2
+</code></pre>
+<p>With some grouping, informed by the analysis we did above for multi-digit numbers, we reach (<code>D</code> stands for “digit”):</p>
+<pre><code class="lang-Elm">type D2 = D0_2 | D1_2 | D2_2
+type D3 = D0_3 | D1_3 | D2_3 | D3_3
+
+type UpTo22
+    = Zero D3
+    | One D3
+    | Three D2
+</code></pre>
+<p>So if we want to create the <code>UpTo2X</code> type we can imagine it would be:</p>
+<pre><code class="lang-Elm">type UpTo2X x
+    = Zero D3
+    | One D3
+    | Two x
+</code></pre>
+<p>Analyzing <code>UpTo2X</code> we can see that:</p>
+<ol>
+<li>if we replace all the <code>D3</code> with <code>()</code>s, <code>UpTo2X ()</code> gets the same shape as <code>D3</code>,</li>
+<li>if we replace all the <code>D3</code> with <code>UpTo3X D3</code>, <code>UpTo2X (UpToyX z)</code> is type type of numbers up to <code>2yz</code>.</li>
+</ol>
+<p>This suggest a further generalization:</p>
+<pre><code class="lang-Elm">type D0 x y
+    = D0_0 y
+
+type D1 x y
+    = D0_1 x
+    | D1_1 y
+
+type D2 x y
+    = D0_2 x
+    | D1_2 x
+    | D2_2 y
+
+type D3 x y
+    | D0_3 x
+    | D1_3 x
+    | D2_3 x
+    | D3_3 y
+</code></pre>
+<p>This is finally enough to represent the numbers up to <code>n</code>, for every <code>n</code>. So if we have a number of the form <code>abc...pqr</code>, we’ll choose <code>Da x y</code>, filling <code>x</code> with the type of numbers up to <code>333...3</code> (with the correct length), and <code>y</code> with the type of numbers up to <code>bc...pqr</code>.</p>
+<p>Let’s enumerate the values of the type <code>D1 (D3 (D3 () ()) (D3 () ())) (D2 (D3 () ()) (D1 () ()))</code> (this type alone should convince you pretty quickly that what we’re doing here, while interesting, is completely impractical).</p>
+<p>Let’s write some intermediate definitions to avoid getting lost:</p>
+<pre><code class="lang-Elm">type alias UpTo1 = D1 () ()
+type alias UpTo3 = D3 () ()
+type alias UpTo21 = D2 UpTo3 UpTo1
+type alias UpTo33 = D3 UpTo3 UpTo3
+type alias UpTo121 = D1 UpTo33 UpTo21
+</code></pre>
+<ul>
+<li><code>UpTo1</code> is <code>D1 () ()</code>, so <code>D0_1 () | D1_1 ()</code>, representing <code>[0, 1]</code>;</li>
+<li><code>UpTo3</code> is <code>D3 () ()</code>, so <code>D0_3 () | D1_3 () | D2_3 () | D3_3 ()</code>, representing <code>[0, 1]</code>;</li>
+<li><code>UpTo21</code> is <code>D3 UpTo3 UpTo1</code>, so <code>D0_2 UpTo3 | D1_2 UpTo3 | D2_2 UpTo1</code>, representing <code>0 [0, 3] | 1 [0, 3] | 2 [0, 1]</code> which is exactly <code>[00, 21]</code>;</li>
+<li><code>UpTo33</code> is <code>D3 UpTo3 UpTo3</code>, so <code>D0_3 UpTo3 | D1_3 UpTo3 | D2_3 UpTo3 | D3_3 UpTo3</code>, representing <code>[00, 33]</code>;</li>
+<li><code>UpTo121</code> is <code>D1 UpTo33 UpTo21</code>, so <code>D0_1 UpTo33 | D1_1 UpTo21</code>, representing <code>0 [00, 33] | 1 [00, 21]</code> which is exactly <code>[000, 121]</code>.</li>
+</ul>
+<p>We now need two things:</p>
+<ul>
+<li>a nice way to build those awful types,</li>
+<li>a way to perform the calculations and return our custom type.</li>
+</ul>
+<p>Before we go on: the most common variants will be the <code>D3</code> ones, so let’s simplify that definition:</p>
+<pre><code class="lang-Elm">type D x y
+    = D0 x
+    | D1 x
+    | D2 x
+    | D3 y
+</code></pre>
+<h3 id="-modby-"><code>modBy</code></h3>
+<p>So what will the API for <code>modBy</code> be? We have found out that it will need to return a value of type <code>Dx y z</code>, and the type of the result will depend on the modulus, so the modulus itself needs to encode something about the type. We’ll try and keep the input number an <code>Int</code>.</p>
+<pre><code class="lang-Elm">modBy : Modulus r -&gt; Int -&gt; r
+</code></pre>
+<h3 id="building-moduli">Building moduli</h3>
+<p>Looking at the types above we can distinguish between the last digit (which is <code>Dx () ()</code>), and the other digits (which are <code>Dx 333....333 partial</code>).</p>
+<p>Thinking about the types it’s obvious that we can’t use lists or <code>Int</code>s to build our modulus, the type changes with every digit.</p>
+<p>For the last digits’ we can expose simple functions:</p>
+<pre><code class="lang-Elm">f0 : Modulus (D0 () ())
+f1 : Modulus (D1 () ())
+f2 : Modulus (D2 () ())
+f3 : Modulus (D () ())
+</code></pre>
+<p>For the other digits, we’ll have a function <code>dx</code> that gets an input of type <code>Modulus (Dy z w)</code> and we want to produce <code>Modulus (Dx (D z z) (Dy z w))</code>. The problem is that Elm’s functions cannot be generic like that (generic in <code>Dx</code>), so we need to either write a <code>dx</code> for every <code>y</code> (this would mean 100 functions for base 10) or we need to keep track of <code>z</code> in some additional way (and just put a type parameter in place of <code>Dy z w</code>).</p>
+<p>How do we keep track of another type? We add a type parameter! So instead of having <code>Modulus x</code> we’ll have <code>Modulus x y</code> where <code>x</code> is the “full” part (which will be of the form <code>D (D (D ...) (D ...)) (D (D ...) (D ...))</code>) and <code>y</code> the <code>Dy z w</code> part.</p>
+<pre><code class="lang-Elm">f0 : Modulus () (D0 () ())
+f1 : Modulus () (D1 () ())
+f2 : Modulus () (D2 () ())
+f3 : Modulus () (D () ())
+
+d0 : Modulus f p -&gt; Modulus (D f f) (D0 f p)
+d1 : Modulus f p -&gt; Modulus (D f f) (D1 f p)
+d2 : Modulus f p -&gt; Modulus (D f f) (D2 f p)
+d3 : Modulus f p -&gt; Modulus (D f f) (D f p)
+</code></pre>
+<h2 id="implementation">Implementation</h2>
+<p>We now need to implement the <code>modBy</code>, <code>fX</code> and <code>dX</code> functions. Our current API builds the modulus digit by digit, but (to my knowledge, correct me if I’m wrong), there are no algorithms for calculating the result the same way. On the other hand we’ll have the input as an <code>Int</code>. To avoid reimplementing the wheel, let’s see if we can use <code>elm/core</code>s <code>modBy</code> in the implementation.</p>
+<p>To do this we need two ingredients:</p>
+<ol>
+<li>the modulus as an Int (this looks easy),</li>
+<li>a way to turn the result of <code>modBy modulus input</code> into a <code>Dx (...) (...)</code> value (this looks harder).</li>
+</ol>
+<h3 id="calculating-the-int-modulus">Calculating the <code>Int</code> modulus</h3>
+<p>We can try simply storing the modulus inside <code>Modulus x y</code>:</p>
+<pre><code class="lang-Elm">type alias Modulus x y =
+    { modulus : Int
+    , ...
+    }
+</code></pre>
+<p>(In this article I’ll write <code>Modulus</code> as a type alias, in a library we would use an opaque type).</p>
+<p>But this quickly hits a wall: we are building <code>Modulus</code> values from the least significant digit to the most significant one, so when we add a zero the <code>Int</code> cannot track it. We could memorize the number “in reverse” and then invert the digits inside <code>modBy</code>, but this would just trade the problem of leading zeroes with a problem with trailing zeroes. Or, we can try “reading” the construction from the other side.</p>
+<p>If we write <code>d1 &lt;| d2 &lt;| f3</code> (which means a modulus of 123), when we read it from left to right we can interpret it as “write a 1, then multiply by 10 and add 2, then multiply by 10 and add 3”, so how can we express the “then multiply by 10 and add X” in a way that allows us to invert the order?</p>
+<p>“given the previous intermediate value, multiply by 10 and add X” sounds a lot like <code>\v -&gt; v * 10 + x</code>, and indeed representing the <code>Int</code> modulus as a function allows us to invert the flow!</p>
+<pre><code class="lang-Elm">f3 =
+    { modulus = \v -&gt; v * 10 + 3
+    , ...
+    }
+
+d1 p =
+    { modulus = \v -&gt; (v * 10 + 1) |&gt; p.modulus
+    }
+
+d2 p =
+    { modulus = \v -&gt; (v * 10 + 2) |&gt; p.modulus
+    }
+</code></pre>
+<p>So in the <code>dX</code> case we first take what’s “arriving from the left”, multiply and add, and then pass it on “to the right” for the next digits.</p>
+<p>So now <code>(d1 &lt;| d2 &lt;| f3).modulus</code> is</p>
+<pre><code class="lang-Elm">(d1 &lt;| d2 &lt;| f3).modulus
+(d1 &lt;| d2 &lt;| { modulus = \v -&gt; v * 10 + 3}).modulus
+(d1 &lt;| \p -&gt; { modulus = \v -&gt; (v * 10 + 2) |&gt; p.modulus } &lt;| { modulus = \v -&gt; v * 10 + 3}).modulus
+(d1 &lt;| { modulus = \v -&gt; (v * 10 + 2) |&gt; ({ modulus = \w -&gt; w * 10 + 3}).modulus }).modulus
+(d1 &lt;| { modulus = \v -&gt; (v * 10 + 2) |&gt; \w -&gt; w * 10 + 3}).modulus
+(d1 &lt;| { modulus = \v -&gt; (v * 10 + 2) * 10 + 3}).modulus
+(d1 &lt;| { modulus = \v -&gt; v * 100 + 23}).modulus
+(\p -&gt; { modulus = \v -&gt; (v * 10 + 1) |&gt; p.modulus} &lt;| { modulus = \v -&gt; v * 100 + 23}).modulus
+({ modulus = \v -&gt; (v * 10 + 1) |&gt; ({ modulus = \w -&gt; w * 100 + 23}).modulus}).modulus
+({ modulus = \v -&gt; (v * 10 + 1) |&gt; \w -&gt; w * 100 + 23}).modulus
+\v -&gt; (v * 10 + 1) |&gt; \w -&gt; w * 100 + 23
+\v -&gt; (v * 10 + 1) * 100 + 23
+\v -&gt; v * 1000 + 123
+</code></pre>
+<p>This also let us see how to recover the <code>Int</code> modulus inside <code>modBy</code>: we pass a simple <code>0</code> to the <code>Modulus x y</code> we are given.</p>
+<h2 id="converting-an-int-into-the-custom-type">Converting an <code>Int</code> into the custom type</h2>
+<p>To be completed…</p>
+<h2 id="epilogue">Epilogue</h2>
+<p>I hope that this post helped you understand how bend <s>spoons</s> the Elm typesystem to achieve seemingly-impossible compile time safety. I intend to continue publishing posts in the “Advanced Elm” spirit, and I think I’ll talk about crazy compile-time checking of tree/graph structure. Let me know what would you like to see!</p>
+<p>Please send me feedback via Slack, Discourse or e-mail!</p>
+</div></div><div class="footer"><img alt="miniBill's blog" src="/img/logo.png" style="float: left; padding-top: 7px" width="75"><div class="link"><a href="https://github.com/miniBill"><svg width="16" height="16" viewbox="0 0 16 16"><path fill="#fff" d="
+M7.999,0.431c-4.285,0-7.76,3.474-7.76,7.761 c0,3.428,2.223,6.337,5.307,7.363c0.388,0.071,0.53-0.168,0.53-0.374c0-0.184-0.007-0.672-0.01-1.32 c-2.159,0.469-2.614-1.04-2.614-1.04c-0.353-0.896-0.862-1.135-0.862-1.135c-0.705-0.481,0.053-0.472,0.053-0.472 c0.779,0.055,1.189,0.8,1.189,0.8c0.692,1.186,1.816,0.843,2.258,0.645c0.071-0.502,0.271-0.843,0.493-1.037 C4.86,11.425,3.049,10.76,3.049,7.786c0-0.847,0.302-1.54,0.799-2.082C3.768,5.507,3.501,4.718,3.924,3.65 c0,0,0.652-0.209,2.134,0.796C6.677,4.273,7.34,4.187,8,4.184c0.659,0.003,1.323,0.089,1.943,0.261 c1.482-1.004,2.132-0.796,2.132-0.796c0.423,1.068,0.157,1.857,0.077,2.054c0.497,0.542,0.798,1.235,0.798,2.082 c0,2.981-1.814,3.637-3.543,3.829c0.279,0.24,0.527,0.713,0.527,1.437c0,1.037-0.01,1.874-0.01,2.129 c0,0.208,0.14,0.449,0.534,0.373c3.081-1.028,5.302-3.935,5.302-7.362C15.76,3.906,12.285,0.431,7.999,0.431z
+            "></path></svg></a></div><div class="link"><a href="https://twitter.com/minibill"><svg width="16" height="16" viewbox="0 0 16 16"><path fill="#fff" d="
+M15.969,3.058c-0.586,0.26-1.217,0.436-1.878,0.515c0.675-0.405,1.194-1.045,1.438-1.809 c-0.632,0.375-1.332,0.647-2.076,0.793c-0.596-0.636-1.446-1.033-2.387-1.033c-1.806,0-3.27,1.464-3.27,3.27 c0,0.256,0.029,0.506,0.085,0.745C5.163,5.404,2.753,4.102,1.14,2.124C0.859,2.607,0.698,3.168,0.698,3.767 c0,1.134,0.577,2.135,1.455,2.722C1.616,6.472,1.112,6.325,0.671,6.08c0,0.014,0,0.027,0,0.041c0,1.584,1.127,2.906,2.623,3.206 C3.02,9.402,2.731,9.442,2.433,9.442c-0.211,0-0.416-0.021-0.615-0.059c0.416,1.299,1.624,2.245,3.055,2.271 c-1.119,0.877-2.529,1.4-4.061,1.4c-0.264,0-0.524-0.015-0.78-0.046c1.447,0.928,3.166,1.469,5.013,1.469 c6.015,0,9.304-4.983,9.304-9.304c0-0.142-0.003-0.283-0.009-0.423C14.976,4.29,15.531,3.714,15.969,3.058z
+            "></path></svg></a></div><div class="link"><a href="https://korban.net/elm/elmstatic/">Created with Elmstatic</a></div></div><link href="/styles.css" rel="stylesheet" type="text/css"><style>body {
+    padding:0px;
+    margin:0px;
+    background-color:#ffffff;
+    color:#363636;
+    font-family:Open Sans, Arial, sans-serif;
+    font-size:18px;
+    line-height:1.4em;
+}
+
+a {
+    color:#343e88;
+    text-decoration:none;
+}
+
+code {
+    font-family:Fira Code, monospace;
+    background-color:#f0f0f0;
+}
+
+pre  code {
+    overflow-x:auto !important;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-family:Proza Libre, Helvetica, sans-serif;
+    line-height:1.1em;
+}
+
+h1 {
+    font-size:2.66667em;
+    margin-bottom:2.0202rem;
+}
+
+h2 {
+    font-size:2em;
+    margin-bottom:1.61616rem;
+}
+
+h3 {
+    font-size:1.33333em;
+    margin-bottom:1.21212rem;
+}
+
+h4 {
+    font-size:1.2em;
+    margin-bottom:0.80808rem;
+}
+
+h5, h6 {
+    font-size:1em;
+    margin-bottom:0.60606rem;
+}
+
+p {
+    margin:auto auto 1.5rem;
+}
+
+small {
+    font-size:65%;
+}
+
+.header-logo {
+    padding-top:6px;
+    text-align:center;
+    background-color:#e8cf55;
+}
+
+@media only screen and (min-width: 600px) {
+    .header-logo {
+        text-align:left;
+    border-bottom:2px solid #3c8765;
+    }
+}
+
+.navigation {
+    text-align:center;
+    border-bottom:2px solid #3c8765;
+    background-color:#e8cf55;
+    padding:10px;
+    margin-top:-20px;
+}
+
+@media only screen and (min-width: 600px) {
+    .navigation {
+        margin-top:0px;
+    padding:0px;
+    text-align:right;
+    }
+}
+
+.navigation  ul {
+    margin:0px;
+    padding:0px;
+}
+
+@media only screen and (min-width: 600px) {
+    .navigation  ul {
+        line-height:100px;
+    }
+}
+
+.navigation  li {
+    display:inline-block;
+    margin-right:20px;
+}
+
+.content {
+    max-width:100vw;
+}
+
+.footer {
+    text-align:center;
+    border-top:2px solid #2f4878;
+    background-color:#343e88;
+    color:#ffffff;
+    line-height:78px;
+    text-align:right;
+}
+
+.footer  a {
+    color:#ffffff;
+    text-decoration:none;
+}
+
+.footer  svg {
+    padding-right:5px;
+    vertical-align:baseline;
+}
+
+.footer  .link {
+    display:inline-block;
+    margin-right:20px;
+}
+
+.post-metadata {
+    margin-top:-0.5em;
+    margin-bottom:2em;
+}
+
+.post-metadata  a, .post-metadata  span {
+    display:inline-block;
+    margin-right:5px;
+}
+
+.post-metadata  a {
+    border:1px solid #e0e0e0;
+    border-radius:3px;
+    background-color:#e8cf55;
+    padding-left:5px;
+    padding-right:5px;
+}</style></body></html>

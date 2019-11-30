@@ -4,7 +4,7 @@
         <title>Ground Level Magic</title>
         <link>https://groundlevelmagic.tk/posts</link>
         <description>doing magic while keeping it simple</description>
-        <lastBuildDate>Mon, 28 Oct 2019 00:10:21 GMT</lastBuildDate>
+        <lastBuildDate>Sat, 30 Nov 2019 16:21:58 GMT</lastBuildDate>
         <docs>http://blogs.law.harvard.edu/tech/rss</docs>
         <generator>Elmstatic</generator>
         <language>en</language>
@@ -31,12 +31,20 @@ trying to shed some light on how I come up with complex types and simple APIs.
 In this post I'll explain how I approach writing libraries that...]]></description>
         </item>
         <item>
-            <title><![CDATA[All posts]]></title>
-            <link>https://groundlevelmagic.tk/posts/undefined-undefined</link>
-            <guid>https://groundlevelmagic.tk/posts/undefined-undefined</guid>
-            <pubDate>Invalid Date</pubDate>
+            <title><![CDATA[Advanced Elm #2: Modular arithmetic]]></title>
+            <link>https://groundlevelmagic.tk/posts/2019-11-23-advanced-elm-modular-arithmetic</link>
+            <guid>https://groundlevelmagic.tk/posts/2019-11-23-advanced-elm-modular-arithmetic</guid>
+            <pubDate>Sat, 23 Nov 2019 00:00:00 GMT</pubDate>
             <description><![CDATA[
-...]]></description>
+Introduction
+Advanced Elm is a project to explore some of the more advanced corners of the Elm language.
+
+I have some objectives for Advanced Elm:
+showing that Elm, while simple and perfect for beginners, is powerful enough for a lot of advanced scenarios,
+trying to unravel how to use advanced language features like phantom types and extensible records,
+trying to shed some light on how I come up with complex types and simple APIs.
+
+In this post I'll try to answer a seemingly simple question: wh...]]></description>
         </item>
     </channel>
 </rss>
