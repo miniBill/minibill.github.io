@@ -82,3 +82,7 @@ variant1 name ctor m1 (CustomCodec am) =
 variant2 : a -> b -> c -> d -> Codec something
 variant2 ctor arg0 arg1 partial =
     Debug.todo "variant2"
+
+
+type alias Modulus f p =
+    {}

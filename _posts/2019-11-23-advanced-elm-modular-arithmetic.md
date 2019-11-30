@@ -201,6 +201,68 @@ d3 : Modulus f p -> Modulus (D f f) (D f p)
 ```
 
 ## Implementation ##
+We now need to implement the `modBy`, `fX` and `dX` functions. Our current API builds the modulus digit by digit, but (to my knowledge, correct me if I'm wrong), there are no algorithms for calculating the result the same way. On the other hand we'll have the input as an `Int`. To avoid reimplementing the wheel, let's see if we can use `elm/core`s `modBy` in the implementation.
+
+To do this we need two ingredients:
+1. the modulus as an Int (this looks easy),
+2. a way to turn the result of `modBy modulus input` into a `Dx (...) (...)` value (this looks harder).
+
+### Calculating the `Int` modulus ###
+We can try simply storing the modulus inside `Modulus x y`:
+
+```Elm
+type alias Modulus x y =
+    { modulus : Int
+    , ...
+    }
+```
+
+(In this article I'll write `Modulus` as a type alias, in a library we would use an opaque type).
+
+But this quickly hits a wall: we are building `Modulus` values from the least significant digit to the most significant one, so when we add a zero the `Int` cannot track it. We could memorize the number "in reverse" and then invert the digits inside `modBy`, but this would just trade the problem of leading zeroes with a problem with trailing zeroes. Or, we can try "reading" the construction from the other side.
+
+If we write `d1 <| d2 <| f3` (which means a modulus of 123), when we read it from left to right we can interpret it as "write a 1, then multiply by 10 and add 2, then multiply by 10 and add 3", so how can we express the "then multiply by 10 and add X" in a way that allows us to invert the order?
+
+"given the previous intermediate value, multiply by 10 and add X" sounds a lot like `\v -> v * 10 + x`, and indeed representing the `Int` modulus as a function allows us to invert the flow!
+
+```Elm
+f3 =
+    { modulus = \v -> v * 10 + 3
+    , ...
+    }
+
+d1 p =
+    { modulus = \v -> (v * 10 + 1) |> p.modulus
+    }
+
+d2 p =
+    { modulus = \v -> (v * 10 + 2) |> p.modulus
+    }
+```
+
+So in the `dX` case we first take what's "arriving from the left", multiply and add, and then pass it on "to the right" for the next digits.
+
+So now `(d1 <| d2 <| f3).modulus` is
+
+```Elm
+(d1 <| d2 <| f3).modulus
+(d1 <| d2 <| { modulus = \v -> v * 10 + 3}).modulus
+(d1 <| \p -> { modulus = \v -> (v * 10 + 2) |> p.modulus } <| { modulus = \v -> v * 10 + 3}).modulus
+(d1 <| { modulus = \v -> (v * 10 + 2) |> ({ modulus = \w -> w * 10 + 3}).modulus }).modulus
+(d1 <| { modulus = \v -> (v * 10 + 2) |> \w -> w * 10 + 3}).modulus
+(d1 <| { modulus = \v -> (v * 10 + 2) * 10 + 3}).modulus
+(d1 <| { modulus = \v -> v * 100 + 23}).modulus
+(\p -> { modulus = \v -> (v * 10 + 1) |> p.modulus} <| { modulus = \v -> v * 100 + 23}).modulus
+({ modulus = \v -> (v * 10 + 1) |> ({ modulus = \w -> w * 100 + 23}).modulus}).modulus
+({ modulus = \v -> (v * 10 + 1) |> \w -> w * 100 + 23}).modulus
+\v -> (v * 10 + 1) |> \w -> w * 100 + 23
+\v -> (v * 10 + 1) * 100 + 23
+\v -> v * 1000 + 123
+```
+
+This also let us see how to recover the `Int` modulus inside `modBy`: we pass a simple `0` to the `Modulus x y` we are given.
+
+## Converting an `Int` into the custom type ##
 To be completed...
 
 ## Epilogue ##
