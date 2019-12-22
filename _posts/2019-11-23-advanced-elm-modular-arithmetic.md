@@ -19,7 +19,7 @@ The [How To style](https://www.amazon.com/How-Absurd-Scientific-Real-World-Probl
 
 As with `elm-codec`, rather than explaining how the current code works I'll reimplement (parts of) it from scratch to emphasize the design process.
 
-A word of caution: this is mostly an excuse to play with complex types, the code is not optimized, the API is insane and the idea is bad. It's still interesting though.
+A word of caution: this is mostly an excuse to play with complex types, the code is not optimized, the API uses insane types and the idea is bad. It's still interesting though.
 
 ### Notation ###
 `[a, b]` = `[a, a+1, a+2, ..., b]`.
@@ -46,7 +46,7 @@ From this we can understand that:
 
 ### Digits ###
 
-We will need at the very least a different type for every single digit, because every possible `modBy` with a single digit number will need a different type (unless we create an API that uses Peano-style numbers, but it would be unwieldy and horrible).
+We will need at the very least a different type for every single digit, because every possible `modBy` with a single digit number will need a different type (unless we create an API that uses Peano-style numbers, but it would be unwieldy and even more horrible than what we're already concocting).
 
 Let's try and write some (hypotetical) code.
 
@@ -58,7 +58,7 @@ type D2 = D0 | D1 | D2
 type D9 = D0 | D1 | D2 | D3 | D4 | D5 | D6 | D7 | D8 | D9
 ```
 
-This is not legal code! Every variant needs a different name. I don't have any ideas that don't produce decent names, the least-bad I've found is:
+This is not legal Elm code! Every variant needs a different name. I don't have any ideas for decent names, the least-bad I've found is:
 
 ```Elm
 type D0 = D0_0
@@ -70,9 +70,9 @@ type D9 = D0_9 | D1_9 | D2_9 | D3_9 | D4_9 | D5_9 | D6_9 | D7_9 | D8_9 | D9_9
 
 For two digits numbers we cannot create a type like `type TwoDigits a b = TD a b`, because we need the second digit to depend on the value of the first one. This seems to point toward dependent types, which Elm doesn't have, but it's actually doable within Elm's typesystem.
 
-To keep the code a bit more compact, from now on I'll use base 4 instead of base 10. Mutatis mutandis everything will work for base 10.
+To keep the code a bit more compact, from now on I'll use base four instead of base ten. Mutatis mutandis everything will work for base ten. We'll also pretend that Elm works in base four, so `10` will be four.
 
-Let's write some pseudo-Elm for the type of two digit numbers up to `22` (in base 4, it would be `10` in base 10).
+Let's write some pseudo-Elm for the type of two digit numbers up to `22` (in base four, it would be `10` in base ten).
 
 ```Elm
 type UpTo22
@@ -131,7 +131,7 @@ type D3 x y
 
 This is finally enough to represent the numbers up to `n`, for every `n`. So if we have a number of the form `abc...pqr`, we'll choose `Da x y`, filling `x` with the type of numbers up to `333...3` (with the correct length), and `y` with the type of numbers up to `bc...pqr`.
 
-Let's enumerate the values of the type `D1 (D3 (D3 () ()) (D3 () ())) (D2 (D3 () ()) (D1 () ()))` (this type alone should convince you pretty quickly that what we're doing here, while interesting, is completely impractical).
+Let's enumerate the values of the type `D1 (D3 (D3 () ()) (D3 () ())) (D2 (D3 () ()) (D1 () ()))` (the length alone of this type should convince you that what we're doing here, while interesting, is completely impractical).
 
 Let's write some intermediate definitions to avoid getting lost:
 
@@ -184,9 +184,9 @@ f2 : Modulus (D2 () ())
 f3 : Modulus (D () ())
 ```
 
-For the other digits, we'll have a function `dx` that gets an input of type `Modulus (Dy z w)` and we want to produce `Modulus (Dx (D z z) (Dy z w))`. The problem is that Elm's functions cannot be generic like that (generic in `Dx`), so we need to either write a `dx` for every `y` (this would mean 100 functions for base 10) or we need to keep track of `z` in some additional way (and just put a type parameter in place of `Dy z w`).
+For the other digits, we'll have a function `dx` that gets an input of type `Modulus (Dy z w)` and we want to produce `Modulus (Dx (D z z) (Dy z w))`. The problem is that Elm's functions cannot be generic like that (generic in `Dx`), so we need to either write a `dx` for every `y` (this would mean one hundred functions for base ten) or we need to keep track of `z` in some additional way (and just put a type parameter in place of `Dy z w`).
 
-How do we keep track of another type? We add a type parameter! So instead of having `Modulus x` we'll have `Modulus x y` where `x` is the "full" part (which will be of the form `D (D (D ...) (D ...)) (D (D ...) (D ...))`) and `y` the `Dy z w` part.
+How do we keep track of another type? We add a type parameter! So instead of having `Modulus x` we'll have `Modulus x y` where `x` is the "full" part (which will be of the form `D (D ...) (D ...)`) and `y` the `Dy z w` part.
 
 ```Elm
 f0 : Modulus () (D0 () ())
@@ -221,7 +221,7 @@ type alias Modulus x y =
 
 But this quickly hits a wall: we are building `Modulus` values from the least significant digit to the most significant one, so when we add a zero the `Int` cannot track it. We could memorize the number "in reverse" and then invert the digits inside `modBy`, but this would just trade the problem of leading zeroes with a problem with trailing zeroes. Or, we can try "reading" the construction from the other side.
 
-If we write `d1 <| d2 <| f3` (which means a modulus of 123), when we read it from left to right we can interpret it as "write a 1, then multiply by 10 and add 2, then multiply by 10 and add 3", so how can we express the "then multiply by 10 and add X" in a way that allows us to invert the order?
+If we write `d1 <| d2 <| f3` (which means a modulus of 123), when we read it from left to right we can interpret it as "write a 1, then multiply by 10 (four) and add 2, then multiply by 10 and add 3", so how can we express the "then multiply by 10 and add X" in a way that allows us to invert the order?
 
 "given the previous intermediate value, multiply by 10 and add X" sounds a lot like `\v -> v * 10 + x`, and indeed representing the `Int` modulus as a function allows us to invert the flow!
 
@@ -242,28 +242,45 @@ d2 p =
 
 So in the `dX` case we first take what's "arriving from the left", multiply and add, and then pass it on "to the right" for the next digits.
 
-So now `(d1 <| d2 <| f3).modulus` is
+So now let's check what `(d1 <| d2 <| f3).modulus` is.
 
 ```Elm
-(d1 <| d2 <| f3).modulus
-(d1 <| d2 <| { modulus = \v -> v * 10 + 3}).modulus
-(d1 <| \p -> { modulus = \v -> (v * 10 + 2) |> p.modulus } <| { modulus = \v -> v * 10 + 3}).modulus
-(d1 <| { modulus = \v -> (v * 10 + 2) |> ({ modulus = \w -> w * 10 + 3}).modulus }).modulus
-(d1 <| { modulus = \v -> (v * 10 + 2) |> \w -> w * 10 + 3}).modulus
-(d1 <| { modulus = \v -> (v * 10 + 2) * 10 + 3}).modulus
-(d1 <| { modulus = \v -> v * 100 + 23}).modulus
-(\p -> { modulus = \v -> (v * 10 + 1) |> p.modulus} <| { modulus = \v -> v * 100 + 23}).modulus
-({ modulus = \v -> (v * 10 + 1) |> ({ modulus = \w -> w * 100 + 23}).modulus}).modulus
-({ modulus = \v -> (v * 10 + 1) |> \w -> w * 100 + 23}).modulus
-\v -> (v * 10 + 1) |> \w -> w * 100 + 23
-\v -> (v * 10 + 1) * 100 + 23
-\v -> v * 1000 + 123
+f3 = { modulus = \v -> v * 10 + 3 }
+d2 <| f3 =
+    (\p -> { modulus = \v -> (v * 10 + 2) |> p.modulus })
+    { modulus = \v -> v * 10 + 3 }
+```
+let's [change the name](https://wiki.haskell.org/Alpha_conversion) of the variable `v` in the expression for `f3` to avoid confusion
+```Elm
+d2 <| f3 =
+    (\p -> { modulus = \v -> (v * 10 + 2) |> p.modulus })
+    = { modulus = \v -> (v * 10 + 2) |> ({ modulus = \w -> w * 10 + 3 }).modulus }
+    = { modulus = \v -> (v * 10 + 2) |> \w -> w * 10 + 3 }
 ```
 
-This also let us see how to recover the `Int` modulus inside `modBy`: we pass a simple `0` to the `Modulus x y` we are given.
+And now (with another renaming):
+```Elm
+d1 <| d2 <| d3 =
+    (\p -> { modulus = \z -> (z * 10 + 1) |> p.modulus })
+    { modulus = \v -> (v * 10 + 2) |> \w -> w * 10 + 3 }
+    = { modulus = \z -> (z * 10 + 1) |> \v -> (v * 10 + 2) |> \w -> w * 10 + 3 }
+```
+So we can see how using a function allowed us to "invert the `<|`s".
+
+Let's simplify a little
+```Elm
+    = { modulus = \z -> ((z * 10 + 1) * 10 + 2) |> \w -> w * 10 + 3 }
+    = { modulus = \z -> ((z * 10 + 1) * 10 + 2) * 10 + 3 }
+    = { modulus = \z -> z * 1000 + 123 }
+```
+ It also let us see how to recover the `Int` modulus inside `modBy`: we pass a simple `0` to `.modulus`.
 
 ## Converting an `Int` into the custom type ##
-To be completed...
+So we have the `Int` we want to `modBy` and the `Int` version of the modulus. If we call `modBy` from `elm/core` we get our result, but we now need to convert it to our custom `Dx (...) (...)` type. How can we do that?
+
+Well, here we can actually go digit-by-digit. We shall build the result from the least significant digit, for the exact same reasons we outlined above while building the modulus.
+
+Let's say that `modulus` is `123` and the result of `x |> modBy modulus` is `101`, we want to build `D1_1 (D0_2 (D1 ()))`. Why this result and not, say `D1 (D0 (D1 ()))`? This is because 
 
 ## Epilogue ##
 
